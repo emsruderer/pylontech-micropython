@@ -144,7 +144,7 @@ class PylontechDecode:
 
     def decodeSystemParameter(self):
         payload = self.data['PAYLOAD']
-       if (self.data['ID'] == 0x46) and (len(payload) == 50):
+        if (self.data['ID'] == 0x46) and (len(payload) == 50):
             i = 2
             self.data['UnitCellVoltage'] = self.cellVoltage(payload[i:i+4])
             i += 4
@@ -243,7 +243,6 @@ class PylontechDecode:
             self.data['ModuleSerialNumber'] = None
             self.data['CommandValue'] = None
         return self.data
-
 
 if __name__ == '__main__':
     d = PylontechDecode()

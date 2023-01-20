@@ -1,11 +1,7 @@
-#import sys
-#sys.path.insert(0, "../../")
-
 # PylontechRS485 handles send & receive and Prefix/suffix/checksum and timeout handling.
 from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
-from wlan import Wifi
 
 def print_dict(d : Dict):
     for key, value  in d.items():
@@ -38,7 +34,6 @@ def strip_header(data):
     return data
 
 def process_command(key):
-        #print(f"process={key}", type(key))
         if key == 'protocol':
             pylon.send(e.getProtocolVersion())
             raws = pylon.receive()
@@ -95,7 +90,6 @@ def process_command(key):
             d.decode_header(raws[0])
             return (d.decodeSystemParameter())
         else:
-            print('Invalid process command')
             raise RuntimeError('Invalid process command')
 
 pylon = PylontechRS485(0, baud=115200)
@@ -109,7 +103,7 @@ if __name__ == '__main__':
         for key in CID:
             print(n,key)
             n += 1
-        command = int(input("\r\n Geef opdracht:"))
+        command = int(input("\r\n Command:"))
         key = CID[command]
         print('\r\n',key)
         data = process_command(key)

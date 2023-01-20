@@ -1,26 +1,17 @@
-from machine import UART, Pin
-from machine import RTC
 import time
-import _thread
 import network
 import socket
-import rp2
-import sys
-import struct
-import ubinascii
+from machine import UART, Pin
+from machine import RTC
 from wlan import Wifi
 from wlan import reset
-
-#from pylontech_base import PylontechRS485
-#from pylontech_decode import PylontechDecode
-#from pylontech_encode import PylontechEncode
 import menu
 
 DEBUG = False
 VERBOSE = False
 
 ssid = "SSID"
-password = "PASSWORD"
+password = "PASSWOrD"
 
 wlan = Wifi(ssid,password)
 #rtc = wlan.get_rtc()
@@ -102,9 +93,9 @@ try:
     s.listen(1)
 except:
     print("socket exception")
-    machine.reset()
     s.close()
-    sys.exit(1)
+    #sys.exit(1)
+    machine.reset()
 
 
 # Listen for connections
@@ -136,10 +127,8 @@ while True:
         if VERBOSE : print(response)
         cl.send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
         cl.send(response)
-        #cl.close()
     except KeyboardInterrupt:  # OSError as e:
         STOP = True
-        # cl.close()
         s.close()
         wlan.disconnect()
         #sys.exit(1)

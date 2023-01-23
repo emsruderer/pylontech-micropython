@@ -37,7 +37,6 @@ class Rs485Handler:
         self.parity = parity
         self.stop = stop
         self.connect()
-        self.clear_rx_buffer()
         self.timeout=10.0,
         self.inter_byte_timeout=0.02
         
@@ -82,12 +81,15 @@ class Rs485Handler:
         """
         while self.ser.any() == 0:
             time.sleep_us(10)
+            if time.time_ns() > end_time:
+               print('Timeout waiting for an answer.')
+               return None
         char = self.ser.read(1)
         # wait for leading byte / start byte; empty the buffer before the start byte:
         while char != start:
             char = self.ser.read(1)
-            if time.time() > end_time:
-                raise Exception('Timeout waiting for an answer.')
+            if time.time_ns() > end_time:
+                print("raise Exception('Timeout waiting for an answer.')")
                 return None
         self.rcvTime1 = time.time_ns() - self.sendTime1  # just for Timeout handling
         # receive all until the trialing byte / end byte:
@@ -102,24 +104,14 @@ class Rs485Handler:
         # return the frame
         return frame
 
-    def clear_rx_buffer(self):
-        """ clear pending characters from serial buffer. especially important for network adapters"""
-        char = '1'
-        #restore_timeout = self.ser.any()
-        #self.ser.timeout = 1
-        while (char is not None) and (len(char) > 0):
-            char = self.ser.read(1)
-        #self.ser.timeout = restore_timeout
-
     def reconnect(self):
         """ force reconnect to serial port"""
-        self.ser.close();
-        self.connect()
-        self.clear_rx_buffer()
+        self.connect();
+       # self.clear_rx_buffer()
 
     def close(self):
         """ force close serial connection"""
-        self.ser.close()
+        self.close()
 
 
 class PylontechRS485:
@@ -147,7 +139,7 @@ class PylontechRS485:
         else:
             self.rs485.verbose = 0
 
-    def receive(self, timeout=5):
+    def receive(self, timeout_ns=50):
         """
         try to receive a pylontech type packet from the RS-485 serial port.
         checks the packet checksum and returns the packet if the checksum is correct.
@@ -158,7 +150,7 @@ class PylontechRS485:
         """
         start_byte = b'~'
         end_byte = b'\r'
-        end_time = time.time() + timeout
+        end_time = time.time_ns() + timeout_ns
         data = self.rs485.receive_frame(end_time=end_time, start=start_byte, end=end_byte)
         # check len
         if data is None:
@@ -219,10 +211,6 @@ class PylontechRS485:
         package = ("~" + data.decode() + "{:04X}".format(chksum) + "\r").encode()
         self.rs485.send(package)
 
-    def clear_rx_buffer(self):
-        """ clear pending characters from serial buffer. especially important for network adapters"""
-        self.rs485.clear_rx_buffer()
-
     def reconnect(self):
         """ force reconnect to serial port"""
         self.rs485.reconnect()
@@ -231,14 +219,11 @@ class PylontechRS485:
         """ force close serial connection"""
         self.rs485.close()
 
-    pass
+if __name__ == '__main__':
+    handler = PylontechRS485(0,115200)
+    handler.verbose(11)
+    frame = b'2002464FC0048520'  # get protocol version
+    handler.send(frame)
+    raw = handler.receive()
+    print('raw', raw)
 
-
-"""
-handler = PylontechRS485(0,115200)
-handler.verbose(11)
-frame = b'2002464FC0048520'  # get protocol version
-handler.send(frame)
-raw = handler.receive()
-print(raw)
-"""

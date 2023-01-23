@@ -11,7 +11,7 @@ DEBUG = False
 VERBOSE = False
 
 ssid = "SSID"
-password = "PASSWOrD"
+password = "PASSWORD"
 
 wlan = Wifi(ssid,password)
 #rtc = wlan.get_rtc()
@@ -46,8 +46,8 @@ def make_table(head,table):
        content = content + make_row(row)
     return content + "</table>"
 
-def make_select(options,selected):
-    select = '<select id="commands" name="commandlist" form="commandform">'
+def make_command_select(options,selected):
+    select = '<select id="commands" name="command" form="choiceform">'
     for option in options:
         if option == selected:
             select += f'<option selected="selected" value="{option}">{option}</option>'
@@ -55,8 +55,19 @@ def make_select(options,selected):
             select += f'<option value={option}>{option}</option>'
     return select + '</select>'
 
-def make_html(data, command):
-    head = ['Key                       ','Value                     ']
+def make_battery_select(modules,selected):
+    select = '<select id="commands" name="battery" form="choiceform">'
+    select_str = str(selected+1)
+    for module in range(modules):
+        option = str(module+1)
+        if option == select_str:
+            select += f'<option selected="selected" value="{option}">{option}</option>'
+        else:
+            select += f'<option value={option}>{option}</option>'
+    return select + '</select>'
+
+def make_html(data, command, battery):
+    head = ['Parameter','Value']
     table = []
     if data and len(data) > 0:
         for key in data:
@@ -64,24 +75,25 @@ def make_html(data, command):
             if VERBOSE: print(key,data[key])
     html_b= """<!DOCTYPE html>
     <html>
-        <head><title>Pylontech Accus</title>
+        <head><title>Pylontech Modules</title>
         <style>
-        table, th, td { border: 1px solid; text-align:center;}
+        table, th, td { border: 1px solid; text-align:left;}
         table { border-collapse: collapse; width:50%; }
         </style>
         <meta http-equiv="refresh" content="60"></head>
-        <body><h1>Pylontech State</h1>"""    
-    html_f = '<form action="/" id="commandform" method="get">'\
-             '<label for="commands">Choose a command:</label>'\
-             '<input type="submit"></form>'
+        <body><h1>Pylontech Module State</h1>"""    
+    html_form = '<form action="/" id="choiceform" method="get">'\
+             '<label>Choose a command and battery:</label>'\
+             '<input type="submit" value="Do request"></form>'
            
-    html_s = make_select(menu.CID,command)
+    html_com = make_command_select(menu.CID,command)
+    html_bat = make_battery_select(menu.pylon_stack.get_module_count(),battery)
   
-    html_t = make_table(head,table)
+    html_table = make_table(head,table)
     
     html_e = "</body></html>"
 
-    return html_b + html_f + html_s + html_t + html_e
+    return html_b + html_form + html_com + html_bat + html_table + html_e
 
 try:
     # Open socket
@@ -99,7 +111,9 @@ except:
 
 
 # Listen for connections
-command = 'analog1'
+command = 'analog'
+battery = 1
+command_dict = {}
 while True:
     try:
         if VERBOSE: print("listening on", addr)
@@ -110,20 +124,27 @@ while True:
         if VERBOSE: print(line)
         if line.startswith(b'GET') and b'?' in line:
             str1 = str(line,'utf-8')
-            tup = str1.split('?')
-            str_c = tup[1].split(' ')
-            com_2 = str_c[0].split('=')
-            if com_2[0] == 'commandlist':
-                command = com_2[1]
-                if VERBOSE: print(f'{com_2[0]}={command}', type(command))
+            result = str1.split()[1].split('?')
+            if len(result) > 1:
+                requests = result[1].split('&')
+                for el in requests:
+                    spl = (el.split('='))
+                    if VERBOSE: print(spl, len(spl))
+                    command_dict[spl[0]] = spl[1]
+                    if 'command' in command_dict:
+                        command = command_dict['command']
+                    if 'battery' in command_dict:
+                        battery = int(command_dict['battery'])-1
+            if VERBOSE:
+                print(f'command={command}&battery={battery}',type(command),type(battery))
         while True:
             line = cl_file.readline()
             if VERBOSE: print(f"readline={line}")
             if not line or line == b"\r\n":
                 break
-        result_dict = menu.process_command(command)
-        data_dict = menu.strip_header(result_dict)
-        response = make_html(data_dict,command) 
+        result_dict = menu.process_command(command,battery)
+        #data_dict = menu.strip_header(result_dict)
+        response = make_html(result_dict,command,battery)
         if VERBOSE : print(response)
         cl.send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
         cl.send(response)

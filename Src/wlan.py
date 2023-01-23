@@ -50,9 +50,10 @@ class Wifi:
             led_off()
 
             # Handle connection error
-        if self.wlan.status() != 3:
+        status = self.wlan.status()
+        if status != 3:
             led_off()
-            raise RuntimeError("network connection failed" + self.wlan.status())
+            raise RuntimeError("network connection failed {status}")
         else:
             led_on()
             if VERBOSE: print("connected")
@@ -85,10 +86,13 @@ class Wifi:
         led_off()
 
 if __name__ == '__main__' :
+  try:
     wlan = Wifi(ssid,password)
     rtc = wlan.get_rtc()
     d = time.gmtime(wlan.request_time())
     print("GMT: {}:{}:{} {}-{}-{}".format(d[3], d[4], d[5], d[2], d[1], d[0]) )
     wlan.disconnect()
+  except:
+      system.exit(1)
     # reset()
   

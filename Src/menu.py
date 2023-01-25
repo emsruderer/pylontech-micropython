@@ -4,6 +4,7 @@ from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
 
+DEBUG = False
 VERBOSE = False
 
 def print_dict(d : Dict):
@@ -92,6 +93,7 @@ class PylontechStack:
         analoglList = []
         chargeDischargeManagementList = []
         alarmInfoList = []
+        systemParameterList = []
 
         totalCapacity = 0
         remainCapacity = 0
@@ -109,49 +111,47 @@ class PylontechStack:
                 totalCapacity = totalCapacity + decoded['ModuleCapacity']
                 totalCurrent = totalCurrent + decoded['Current']
                 power = power + (decoded['Voltage'] * decoded['Current'])
-
+                #print('charging') 
                 self.pylon.send(self.encode.getChargeDischargeManagement(battNumber=batt, group=self.group))
                 raws = self.pylon.receive()
                 self.decode.decode_header(raws[0])
                 decoded = self.decode.decodeChargeDischargeManagementInfo()
                 strip_header(decoded)
                 chargeDischargeManagementList.append(decoded)
-
-                self.pylon.send(self.encode.getAlarmInfo(battNumber=batt, group=self.group))
+                #print('AlarmInfo')
+                self.pylon.send(self.encode.getAlarmInfo())
                 raws = self.pylon.receive()
                 self.decode.decode_header(raws[0])
                 decoded = self.decode.decodeAlarmInfo()
                 strip_header(decoded)
                 alarmInfoList.append(decoded)
-            except Exception as e:
-                self.pylon.reconnect()
-                raise Exception('Pylontech update error') from e
+
+                self.pylon.send(self.encode.getSystemParameter())
+                raws = self.pylon.receive()
+                self.decode.decode_header(raws[0])
+                decoded = self.decode.decodeSystemParameter()
+                strip_header(decoded)
+                systemParameterList.append(decoded)
             except ValueError as e:
-                self.pylon.reconnect()
-                raise Exception('Pylontech update error') from e
+                #self.pylon.reconnect()
+                raise Exception('Pylontech update error') from e 
+            except Exception as e:
+                #self.pylon.reconnect()
+                print("Exception('Pylontech update error')")
 
         self.pylonData['AnaloglList'] = analoglList
         self.pylonData['ChargeDischargeManagementList'] = chargeDischargeManagementList
         self.pylonData['AlarmInfoList'] = alarmInfoList
-
-        try:
-            self.pylon.send(self.encode.getSystemParameter())
-            raws = self.pylon.receive()
-            self.decode.decode_header(raws[0])
-            decoded = self.decode.decodeSystemParameter()
-            self.pylonData['SystemParameter'] = strip_header(decoded)
-        except Exception as e:
-            self.pylon.reconnect()
-            raise Exception('Pylontech update error') from e
-        except ValueError as e:
-            self.pylon.reconnect()
-            raise Exception('Pylontech update error') from e
-
+        self.pylonData['SystemParameterList']= systemParameterList
+         
         self.pylonData['Calculated']['TotalCapacity_Ah'] = round(totalCapacity,1)
         self.pylonData['Calculated']['Capacity_kWh'] = round(50 * totalCapacity/1000,3)
         self.pylonData['Calculated']['RemainingCapacity_Ah'] = round(remainCapacity,1)
         self.pylonData['Calculated']['RemainingEnergy_kWh'] = round(50 * remainCapacity /1000, 3)
-        self.pylonData['Calculated']['Remaining_%'] = round((remainCapacity / totalCapacity) * 100, 1)
+        if totalCapacity > 0:
+            self.pylonData['Calculated']['Remaining_%'] = round((remainCapacity / totalCapacity) * 100, 1)
+        else:
+            self.pylonData['Calculated']['Remaining_%'] = 0
         self.pylonData['Calculated']['Current_Amp'] = round(totalCurrent,1)
         self.pylonData['Calculated']['Charging_Watt'] = round(power, 1)
         if VERBOSE : print("end update: ", time.time()-starttime)
@@ -223,7 +223,7 @@ def process_command(key, batt=0):
                 return None
         elif key == 'status' :
             stackResult = pylon_stack.update()
-            if VERBOSE :
+            if DEBUG :
                 results = list(stackResult)
                 for it in results :
                     print('\n\r', it, '\n\r')
@@ -244,7 +244,6 @@ if __name__ == '__main__':
             n += 1
         command_input = input("\r\n Command nummer, battery number:")
         command = command_input.split(',')
-        print(command, type(command))
         key = CID[int(command[0])]
         if len(command) == 2:
             bat = int(command[1])-1

@@ -139,7 +139,7 @@ class PylontechRS485:
         else:
             self.rs485.verbose = 0
 
-    def receive(self, timeout_ns=50):
+    def receive(self, timeout_ns=70):
         """
         try to receive a pylontech type packet from the RS-485 serial port.
         checks the packet checksum and returns the packet if the checksum is correct.

@@ -1,0 +1,82 @@
+<html lang="de">
+<head>
+<meta http-equiv=content-type content="text/html; charset=utf-8" />
+<meta http-equiv="Cache-Control" content="private, no-transform" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="format-detection" content="telephone=no" />
+<meta http-equiv="x-rim-auto-match" content="none" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimal-ui" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta http-equiv="cleartype" content="on">
+<link rel="icon" href="/favicon.ico" size="16x16"/>
+<link rel="icon" href="/icon.svg" type="image/svg+xml"/>
+<link rel="icon" href="/icon.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<link rel="apple-touch-startup-image" href="/apple-touch-icon.png" />
+<style>
+/*@font-face {
+font-family: 'Source Sans Pro';
+font-style: italic;
+font-stretch: normal;
+font-weight: 400;
+src: url('/assets/fonts/SourceSansPro-Italic.woff2') format('woff2');
+}*/
+@font-face {
+font-family: 'Source Sans Pro';
+font-style: normal;
+font-stretch: normal;
+font-weight: 400;
+src: url('/assets/fonts/source-sans-pro-v11-latin-ext_latin-regular.woff2') format('woff2');
+}
+@font-face {
+font-family: 'Source Sans Pro';
+font-style: normal;
+font-stretch: normal;
+font-weight: 600;
+src: url('/assets/fonts/source-sans-pro-v11-latin-ext_latin-600.woff2') format('woff2');
+}
+@font-face {
+font-family: 'Source Sans Pro';
+font-style: normal;
+font-stretch: normal;
+font-weight: 900;
+src: url('/assets/fonts/SourceSansPro-Black.woff2') format('woff2');
+}
+html, input, textarea, keygen, select, button {
+font-family: 'Source Sans Pro', Arial, sans-serif;
+font-size: 100%;
+}
+</style>
+
+<link rel="stylesheet" type="text/css" href="/css/box.css">
+<link rel='stylesheet' type='text/css' href="/css/rd/login.css"/>
+<title>
+FRITZ!Box
+</title>
+</head>
+<body>
+<script>
+var gNbc = false;
+</script>
+<script src="/js/browser.js"></script>
+<script src="/js/vendor.js"></script>
+<script src="/js/box-login.js"></script>
+<script type="module">
+import { setConfig } from "/js/config.js";
+import login from "/js/login.js";
+setConfig({"ZIGBEE":false,"GUI_IS_POWERLINE":false,"isDebug":false,"gu_type":"release","WLAN":{"is_double_wlan":false},"GUI_IS_REPEATER":false,"GUI_IS_GATEWAY":false,"language":"de","GUI_HIDE_TEASER":false});
+
+if (window.gNbc) {
+data.nbc = true;
+}
+function localInit() {
+"use strict";
+window.history.replaceState({}, '', '/');
+login.init(data);
+}
+localInit();
+</script>
+</body>
+</html>

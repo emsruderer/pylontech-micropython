@@ -2,7 +2,7 @@
 Project to communicate to Pylontech Batteries using RS-485 serial communication
 Based on the Pylontech-Python library of Tomcat42
 
-It consist of 2 Pylontech batteries (US5000 and US3000C) connected with a RJ45 plug (pin6 GND, pin7 A, pin8 B) to a
+It consist of 1 to 15 Pylontech batteries (US5000 and US3000C) in one group connected with a RJ45 plug (pin6 GND, pin7 A, pin8 B) to a
 Waveshare 2-Channel RS485 Module for Raspberry Pi Pico, SP3485 Transceiver, UART to RS485.
 The Raspberry Pico W is programmed with a Raspberry 400 with Thonny in micropython.
 

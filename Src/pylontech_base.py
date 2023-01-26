@@ -4,10 +4,8 @@
     Battery. This code is based on the
     "PYLON low voltage Protocol RS485", Version 3.3 (2018/08/21)
 
-    The RS-485 communication ist based on pyserial.
-    As hardware, a simple usb-serial rs485 adapter can be used.
-    these adapter are able to receive out of the box, sending is possible
-    by enabling the transceive pin using the RTS signal.
+    The RS-485 communication ist based on Waveshare's 2-ch-RS485 for pico
+    A raspberry pico rs485 hat.
 """
 
 from machine import UART, Pin
@@ -16,10 +14,9 @@ import time
 CHKSUM_BYTES = 4
 EOI_BYTES = 1
 
-
 class Rs485Handler:
-    """ Handles the serial to RS485 adapter with TE / Transmit Enable on RTS
-        provides sending and receiving frames defined by start byte and end byte
+    """ Handles the serial to RS485 provides sending and receiving frames defined by 
+        start byte and end byte, 
         preset for
         - 115200 baud,8n1
         - UART0 as serial device

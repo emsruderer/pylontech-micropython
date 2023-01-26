@@ -8,7 +8,7 @@ import sys
 import struct
 import ubinascii
 
-SSID = "SSID"
+SSID = "LocalNetwork"
 PASSWORD = "PASSWORD"
 
 DEBUG = False
@@ -41,12 +41,23 @@ def led_off():
 
 # set the wlan to your country, here Germany
 rp2.country("DE")
-counter = 0
-period = 60
-router = "192.168.20.1"
-start = time.ticks_ms() 
+
+HEARTBEAT = False
 import urequests
 
+counter = 0
+period = 60
+router = "192.168.0.1"
+start = time.ticks_ms() 
+
+def set_router(ip):
+    global router
+    router = ip
+    
+""" fuction that test every minute if a connection with the router on the local net exist,
+    if not tries to reconnect. Still buggy, do not use it unless trying to make the program more robust
+    Not usefull during development of the functionality
+"""
 def alive(c):
     global start
     delta = time.ticks_diff(time.ticks_ms(), start)/1000
@@ -111,6 +122,10 @@ class Wifi:
 
     def get_ifconfig(self):
         return self.wlan.ifconfig()
+    
+    def get_router(self):
+        return self.get_ifconfig()[3]
+        
 
     def get_status(self):
         return self.wlan.status()
@@ -130,14 +145,20 @@ class Wifi:
             return "No net available"
         elif status == LINK_BADAUTH:
             return "Authentication failed"
+
+    """ This method creates a timer which fires every second a call to alive
+        alive checks if a connection to the local net exists.
+        Still buggy do not switch it on """
+    """ Trying to use the pico watchdog for this in combination with a 'main.py' led to problems.
+        I had to nuke the pico to make available/usable again """
+    def create_heartbeat(self):
+        if HEARTBEAT:
+            self.timer = Timer(period=1000, mode=Timer.PERIODIC, callback=lambda counter: alive(0))
+            print('timer created')
         
-    def create_timer(self):
-        self.timer = Timer(period=1000, mode=Timer.PERIODIC, callback=lambda counter: alive(0))
-        print('timer created')
-        
-    def deinit_timer(self):
-        self.timer.deinit()
-        
+    def stop_heartbeat(self):
+        if HEARTBEAT:
+           self.timer.deinit()
     
     def request_time(self, addr="1.de.pool.ntp.org"):
         self.sockaddr = socket.getaddrinfo(addr, 123)[0][-1]
@@ -169,23 +190,23 @@ class Wifi:
 
 if __name__ == "__main__":
     try:
+        HEARTBEAT =  True
         wlan = Wifi(SSID, PASSWORD)
+        set_router(wlan.get_router())
         rtc = wlan.get_rtc()
         d = time.gmtime(wlan.request_time())
         print("GMT: {}:{}:{} {}-{}-{}".format(d[3], d[4], d[5], d[2], d[1], d[0]))
-        wlan.create_timer()
+        wlan.create_heartbeat()
         while True:
             #r = urequests.get(f"http://{router}")
             print('main alive')
             time.sleep(10)
-
-        wlan.create_timer()
-        wlan.disconnect()
-
-        # sys.exit(0)
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
-        wlan.deinit_timer()
+        wlan.stop_heartbeat()
         wlan.disconnect()
         sys.exit(1)
-    # reset()
+    finally :
+        wlan.stop_heartbeat()
+        wlan.disconnect()
+        sys.exit(0)

@@ -1,5 +1,6 @@
 # PylontechRS485 handles send & receive and Prefix/suffix/checksum and timeout handling.
 import time
+import machine
 from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
@@ -20,7 +21,8 @@ CID = ['protocol',
        'serialnumber',
        'systemparameter',
        'status',
-       'unknown']
+       'reboot',
+       'undefined']
 
 def strip_header(data):
     if data:
@@ -90,15 +92,19 @@ class PylontechStack:
         """
         starttime=time.time()
         if VERBOSE : print("start update")
-        analoglList = []
+        analogList = []
         chargeDischargeManagementList = []
         alarmInfoList = []
         systemParameterList = []
-
+        
         totalCapacity = 0
         remainCapacity = 0
         totalCurrent = 0
         power = 0
+        minimum_cell_voltage = 4.0
+        maximum_cell_voltage = 2.0
+        minimum_temperature = 60.0
+        maximum_temperature = -10.0
         for batt in range(0, self.battcount):
             try:
                 self.pylon.send(self.encode.getAnalogValue(battNumber=batt, group=self.group))
@@ -106,7 +112,22 @@ class PylontechStack:
                 self.decode.decode_header(raws[0])
                 decoded = self.decode.decodeAnalogValue()
                 strip_header(decoded)
-                analoglList.append(decoded)
+                analogList.append(decoded)
+
+                cellVoltageList = decoded['CellVoltages']
+                for voltage in cellVoltageList:
+                    if voltage > maximum_cell_voltage:
+                        maximum_cell_voltage = voltage
+                    elif voltage < minimum_cell_voltage:
+                        minimum_cell_voltage= voltage
+
+                temperaturesList = decoded['Temperatures']
+                for temperature in temperaturesList:
+                    if temperature > maximum_temperature:
+                        maximum_temperature = temperature
+                    elif temperature < minimum_temperature:
+                        minimum_temperature = temperature
+                
                 remainCapacity = remainCapacity + decoded['RemainingCapacity']
                 totalCapacity = totalCapacity + decoded['ModuleCapacity']
                 totalCurrent = totalCurrent + decoded['Current']
@@ -139,7 +160,7 @@ class PylontechStack:
                 #self.pylon.reconnect()
                 print("Exception('Pylontech update error')")
 
-        self.pylonData['AnaloglList'] = analoglList
+        self.pylonData['AnalogList'] = analogList
         self.pylonData['ChargeDischargeManagementList'] = chargeDischargeManagementList
         self.pylonData['AlarmInfoList'] = alarmInfoList
         self.pylonData['SystemParameterList']= systemParameterList
@@ -154,6 +175,10 @@ class PylontechStack:
             self.pylonData['Calculated']['Remaining_%'] = 0
         self.pylonData['Calculated']['Current_Amp'] = round(totalCurrent,1)
         self.pylonData['Calculated']['Charging_Watt'] = round(power, 1)
+        self.pylonData['Calculated']['MinimumCellVoltage'] = round(minimum_cell_voltage,2)
+        self.pylonData['Calculated']['MaximumCellVoltage'] = round(maximum_cell_voltage,2)
+        self.pylonData['Calculated']['MinimumTemperature'] = round(minimum_temperature,1)
+        self.pylonData['Calculated']['MaximumTemperature'] = round(maximum_temperature,1)
         if VERBOSE : print("end update: ", time.time()-starttime)
         return self.pylonData
 
@@ -232,6 +257,9 @@ def process_command(key, batt=0):
                     else:
                         print_dict(stackResult[it][0])
             return stackResult['Calculated']
+        elif key == 'reboot':
+            print('rebooting')
+            machine.soft_reset()
         else:
             raise RuntimeError('Invalid process command')
 

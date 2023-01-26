@@ -1,14 +1,15 @@
 import time
 import network
 import socket
-from machine import UART, Pin
-from machine import RTC
+from machine import UART, Pin, RTC, reset
 from wlan import Wifi
-from wlan import reset
 import menu
 
 DEBUG = False
 VERBOSE = False
+
+#ssid = "LS22Box"
+#password = "00829806627728286690"
 
 wlan = Wifi()
 #rtc = wlan.get_rtc()
@@ -105,7 +106,7 @@ except:
     print("socket exception")
     s.close()
     #sys.exit(1)
-    machine.reset()
+    reset()
 
 
 # Listen for connections
@@ -113,7 +114,7 @@ STOP = False
 command = 'status'
 battery = 1
 command_dict = {}
-wlan.create_timer()
+wlan.create_heartbeat()
 while not STOP:
     try:
         if VERBOSE: print("listening on", addr)
@@ -156,10 +157,8 @@ while not STOP:
         print("Keyboard Interrupt")
         STOP = True
         s.close()
-        wlan.deinit_timer()
+        wlan.stop_heartbeat()
         wlan.disconnect()
-        #sys.exit(1)
-        reset()
     finally:
         cl.close()
         if VERBOSE: print("connection closed")

@@ -8,8 +8,8 @@ import sys
 import struct
 import ubinascii
 
-SSID = "LocalNetwork"
-PASSWORD = "PASSWORD"
+SSID = "Network"
+PASSWORD = "Password"
 
 DEBUG = False
 VERBOSE = True
@@ -152,6 +152,7 @@ class Wifi:
     """ Trying to use the pico watchdog for this in combination with a 'main.py' led to problems.
         I had to nuke the pico to make available/usable again """
     def create_heartbeat(self):
+        set_router(self.get_router())
         if HEARTBEAT:
             self.timer = Timer(period=1000, mode=Timer.PERIODIC, callback=lambda counter: alive(0))
             print('timer created')
@@ -192,13 +193,12 @@ if __name__ == "__main__":
     try:
         HEARTBEAT =  True
         wlan = Wifi(SSID, PASSWORD)
-        set_router(wlan.get_router())
+        #set_router(wlan.get_router())
         rtc = wlan.get_rtc()
         d = time.gmtime(wlan.request_time())
         print("GMT: {}:{}:{} {}-{}-{}".format(d[3], d[4], d[5], d[2], d[1], d[0]))
         wlan.create_heartbeat()
         while True:
-            #r = urequests.get(f"http://{router}")
             print('main alive')
             time.sleep(10)
     except KeyboardInterrupt:

@@ -195,7 +195,8 @@ class PylontechDecode:
             self.data['DischargeUpperLimitTemperature'] = None
             self.data['DischargeLowerLimitTemperature'] = None
             self.data['DischargeLowerLimitCurrent'] = None
-            raise Exception('format error')
+            payload_lgt = len(payload)
+            raise Exception(f"format error SystemParameter, payload length: {payload_lgt}")
         return self.data
 
     def decodeAnalogValue(self):

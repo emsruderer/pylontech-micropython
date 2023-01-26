@@ -23,12 +23,9 @@ class Rs485Handler:
         preset for
         - 115200 baud,8n1
         - UART0 as serial device
-     """
-    sendTime1 = 0
-    sendTime2 = 0
-    rcvTime1 = 0
-    rcvTime2 = 0
-    verbose = False
+    """
+    VERBOSE = False
+    VERBOSE_1 = True
 
     def __init__(self, device=0, baud=115200, bits=8, parity=None,stop=1):
         self.device=device
@@ -37,13 +34,11 @@ class Rs485Handler:
         self.parity = parity
         self.stop = stop
         self.connect()
-        self.timeout=10.0,
-        self.inter_byte_timeout=0.02
         
     def connect(self):
         try:
             # open serial port:
-            if self.verbose > 0:
+            if self.VERBOSE_1:
                 print(self.device,self.baud,self.bits,self.parity,self.stop)
             self.ser = UART(self.device,self.baud,tx=Pin(0),rx = Pin(1))
             self.ser.init(self.baud, self.bits,self.parity,self.stop)
@@ -52,7 +47,7 @@ class Rs485Handler:
             exit(1)
 
     def verbose_print(self, data):
-        if self.verbose > 0:
+        if self.VERBOSE_1 :
             print(data)
 
     def send(self, data):
@@ -60,13 +55,14 @@ class Rs485Handler:
         :param data:  binary data e.g. b'~2002464FC0048520FCB2\r'
         :return:      -
         """
-        self.verbose_print("->  " + data.decode())
+        #self.verbose_print("->  " + data.decode())
+        self.send_start_time = time.ticks_us()
         self.ser.write(data)
-        self.sendTime1 = time.time_ns()
-        time.sleep_ms(10)
-        self.sendTime2 = time.time_ns() - self.sendTime1
+        while self.ser.flush():
+            time.sleep_us(10) # 10
+        self.send_duration = time.ticks_us() - self.send_start_time
 
-    def receive_frame(self, end_time, start=b'~', end=b'\r'):
+    def receive_frame(self, end_wait_time, start=b'~', end=b'\r'):
         """ receives a frame defined by a start byte/prefix and end byte/suffix
         :param end_time:
             we expect receiving the last character before this timestamp
@@ -81,33 +77,28 @@ class Rs485Handler:
         """
         while self.ser.any() == 0:
             time.sleep_us(10)
-            if time.time_ns() > end_time:
+            if time.ticks_us() > end_wait_time:
                print('Timeout waiting for an answer.')
                return None
         char = self.ser.read(1)
-        # wait for leading byte / start byte; empty the buffer before the start byte:
+        # wait for leading byte / start byte
         while char != start:
             char = self.ser.read(1)
-            if time.time_ns() > end_time:
-                print("raise Exception('Timeout waiting for an answer.')")
+            if time.ticks_us() > end_wait_time:
+                print("raise Exception('Timeout waiting for start byte.')")
                 return None
-        self.rcvTime1 = time.time_ns() - self.sendTime1  # just for Timeout handling
-        # receive all until the trialing byte / end byte:
-        # and build a complete frame as we throw the start byte...
+        self.receive_start_time = time.ticks_us()  # just for Timeout handling
+        # receive the whole transmission with the trialing byte / end bytes:
         frame = start + self.ser.read()  # this uses the inter_byte_timeout on failure.
-        # just more timeout handling:
-        self.rcvTime2 = time.time_ns() - self.sendTime1  # just for Timeout handling
-        # just for debugging:
-        self.verbose_print("\r <- " + frame.decode())
-        self.verbose_print(" times:{:8d}{:8d}   -{:8d} ".format(
-            self.sendTime2 , self.rcvTime1 , self.rcvTime2))
-        # return the frame
+        self.receive_duration = time.ticks_us() - self.receive_start_time  # just for Timeout handling
+ 
+        #self.verbose_print("\r <- " + frame.decode())
+        self.verbose_print(f"send    duration:{self.send_duration:6d} us;\r\nreceive duration {self.receive_duration:6d} us")
         return frame
 
     def reconnect(self):
-        """ force reconnect to serial port"""
-        self.connect();
-       # self.clear_rx_buffer()
+        """ force reinit of UART"""
+        self.ser.init(self.baud, self.bits,self.parity,self.stop)
 
     def close(self):
         """ force close serial connection"""
@@ -125,23 +116,20 @@ class PylontechRS485:
 
     def __init__(self, device=0, baud=115200, bits=8, parity=None, stop=1):
         """ init function of the pylontech rs485 protocol handler
-                  UART0 == 0, UART1 == 1
+            UART0 == 0, UART1 == 1
         :param baud:
-                    valid baud rate, identical to the setting at the Battery,
-                    e.g. 9600 or 115200
+            valid baud rate, identical to the setting at the Battery,
+            e.g. 9600 or 115200
         """
         self.rs485 = Rs485Handler(device, baud, bits=8, parity=None, stop=1)
 
-    def verbose(self, level=0):
+    def verbose(self, level):
         self.verbose = level
-        if level >10:
-            self.rs485.verbose = level - 10
-        else:
-            self.rs485.verbose = 0
-
-    def receive(self, timeout_ns=70):
+        self.rs485.verbose = level
+ 
+    def receive(self, timeout_us=15000):
         """
-        try to receive a pylontech type packet from the RS-485 serial port.
+        try to receive a pylontech type packet from the pico UART.
         checks the packet checksum and returns the packet if the checksum is correct.
         :param timeout:
             timespan until packet has to be received
@@ -150,30 +138,26 @@ class PylontechRS485:
         """
         start_byte = b'~'
         end_byte = b'\r'
-        end_time = time.time_ns() + timeout_ns
-        data = self.rs485.receive_frame(end_time=end_time, start=start_byte, end=end_byte)
+        end_waiting_time = time.ticks_us() + timeout_us
+        data = self.rs485.receive_frame(end_waiting_time, start=start_byte, end=end_byte)
         # check len
         if data is None:
             return None
-        if len(data) < 16:
-            # smaller then minimal size
+        if len(data) < 16: # smaller then minimal size
             return None
-        start = data.index(b'~')
+        start = data.index(b'~')   # check prefix and suffix
         if start > 0:
             data = data[start:-1]
-        # check prefix and suffix
         index = 0
         while (data[index] != 0x7E) and (data[index] not in self.valid_chars):
             index += 1
             if (data[index] == 0x7E) and (data[index] in self.valid_chars):
                 data = data[index:len(data)]
                 break
-        if data[0] != start_byte[0]:  # default: start = 0x7e = '~'
-            # pefix missing
+        if data[0] != start_byte[0]:  # default: start = 0x7e = '~', pefix missing
             raise ValueError("no Prefix '{}' received:\nreceived:\n{}".format(start_byte, data[0]))
             return None
-        if data[-1] != end_byte[0]:   # default: start = 0xd = '\r'
-            # suffix missing
+        if data[-1] != end_byte[0]:   # default: end = 0xd = '\r', suffix missing
             raise ValueError("no suffix '{}' received:\nreceived:\n{}".format(end_byte, data[-1]))
             return None
         data = data[1:-1]  # packet stripped, - without prefix, suffix
@@ -200,7 +184,7 @@ class PylontechRS485:
 
     def send(self, data):
         """
-        sends a pylontech type packet to the RS-485 serial port.
+        sends a pylontech type packet to the RS-485 UART.
         :param data: packet as binary string
                      - checksum will be calculated and written,
                      - prefix/suffix will be added.

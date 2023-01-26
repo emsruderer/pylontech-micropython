@@ -76,7 +76,7 @@ class PylontechStack:
             retryCount = 0
             packet_data = self.encode.getSerialNumber(battNumber=batt, group=self.group)
             self.pylon.send(packet_data)
-            raws = self.pylon.receive(100)  # serial number should provide a fast answer.
+            raws = self.pylon.receive(20000)  # serial number should provide a fast answer.
             if raws is not None:
                 self.decode.decode_header(raws[0])
                 try:
@@ -154,11 +154,10 @@ class PylontechStack:
                 strip_header(decoded)
                 systemParameterList.append(decoded)
             except ValueError as e:
-                #self.pylon.reconnect()
-                raise Exception('Pylontech update error') from e 
+                print("Exception('Pylontech Value Error')"+str(e))
             except Exception as e:
                 #self.pylon.reconnect()
-                print("Exception('Pylontech update error')")
+                print("Exception('Pylontech Update Error')")
 
         self.pylonData['AnalogList'] = analogList
         self.pylonData['ChargeDischargeManagementList'] = chargeDischargeManagementList

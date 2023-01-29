@@ -1,29 +1,30 @@
-""" Functions to support the Pylontech US2000 and similar Batteries.
+""" Functions to support the Pylontech US3000 and similar Batteries.
 
     This module provides Classes to communicate over RS-485 to the Pylontech
     Battery. This code is based on the
     "PYLON low voltage Protocol RS485", Version 3.3 (2018/08/21)
 
-    The RS-485 communication ist based on Waveshare's 2-ch-RS485 for pico
-    A raspberry pico rs485 hat.
+    The RS-485 communication ist based on waveshare 2-Channel RS485 Module for Raspberry
+    Pi Pico as hardware 
 """
 
 from machine import UART, Pin
 import time
 
+VERBOSE = False
+
 CHKSUM_BYTES = 4
 EOI_BYTES = 1
 
+
 class Rs485Handler:
-    """ Handles the serial to RS485 provides sending and receiving frames defined by 
-        start byte and end byte, 
-        preset for
+    """ Handles the serial to RS485 adapter provides sending and receiving
+        frames defined by start byte and end byte preset for
         - 115200 baud,8n1
         - UART0 as serial device
     """
-    VERBOSE = False
-    VERBOSE_1 = True
-
+    VERBOSE_1 = False
+    
     def __init__(self, device=0, baud=115200, bits=8, parity=None,stop=1):
         self.device=device
         self.baud=baud
@@ -88,9 +89,10 @@ class Rs485Handler:
         # receive the whole transmission with the trialing byte / end bytes:
         frame = start + self.ser.read()  # this uses the inter_byte_timeout on failure.
         self.receive_duration = time.ticks_us() - self.receive_start_time  # just for Timeout handling
- 
+        frame_lgt = len(frame)
         #self.verbose_print("\r <- " + frame.decode())
         self.verbose_print(f"send    duration:{self.send_duration:6d} us;\r\nreceive duration {self.receive_duration:6d} us")
+        self.verbose_print(f"frame lgt: {frame_lgt}")
         return frame
 
     def reconnect(self):
@@ -124,7 +126,7 @@ class PylontechRS485:
         self.verbose = level
         self.rs485.verbose = level
  
-    def receive(self, timeout_us=15000):
+    def receive(self, timeout_us=16000):
         """
         try to receive a pylontech type packet from the pico UART.
         checks the packet checksum and returns the packet if the checksum is correct.
@@ -145,30 +147,23 @@ class PylontechRS485:
         start = data.index(b'~')   # check prefix and suffix
         if start > 0:
             data = data[start:-1]
-        index = 0
-        while (data[index] != 0x7E) and (data[index] not in self.valid_chars):
-            index += 1
-            if (data[index] == 0x7E) and (data[index] in self.valid_chars):
-                data = data[index:len(data)]
-                break
         if data[0] != start_byte[0]:  # default: start = 0x7e = '~', pefix missing
             raise ValueError("no Prefix '{}' received:\nreceived:\n{}".format(start_byte, data[0]))
             return None
         if data[-1] != end_byte[0]:   # default: end = 0xd = '\r', suffix missing
             raise ValueError("no suffix '{}' received:\nreceived:\n{}".format(end_byte, data[-1]))
             return None
-        data = data[1:-1]  # packet stripped, - without prefix, suffix
-        packages = data.split(b'\r~')
-        data2 = []
-        for package in reversed(packages):
-            chksum = self.get_chk_sum(package, len(package))
-            chksum_from_pkg = int(package[-4:].decode(),16)
-            if chksum == chksum_from_pkg:
-                data2.append(package)
-            else:
-                raise ValueError("crc error;  Soll<->ist: {:04x} --- {:04x}\nPacket:\n{}".format(chksum, chksum_from_pkg, package))
-        return data2
-
+        package = data[1:-1]  # packet stripped, - without prefix, suffix
+        chksum = self.get_chk_sum(package, len(package))
+        chksum_from_pkg = int(package[-4:].decode(),16)
+        if chksum == chksum_from_pkg:
+            if VERBOSE:
+                print('checksum ok')
+            return package
+        else:
+            return None
+            raise ValueError(f"crc error;  Soll<->ist: {chksum:04x} --- {chksum_from_pkg:04x}")
+        
     @staticmethod
     def get_chk_sum(data, size):
         sum = 0

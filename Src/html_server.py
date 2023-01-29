@@ -8,9 +8,6 @@ import menu
 DEBUG = False
 VERBOSE = False
 
-#ssid = "LS22Box"
-#password = "00829806627728286690"
-
 wlan = Wifi()
 #rtc = wlan.get_rtc()
 #print(rtc.datetime())137

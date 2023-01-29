@@ -73,18 +73,18 @@ class PylontechStack:
         return self.battcount
 
     def poll_serial_number(self, batt, retries=2):
-            retryCount = 0
-            packet_data = self.encode.getSerialNumber(battNumber=batt, group=self.group)
-            self.pylon.send(packet_data)
-            raws = self.pylon.receive(20000)  # serial number should provide a fast answer.
-            if raws is not None:
-                self.decode.decode_header(raws[0])
-                try:
-                    decoded = self.decode.decodeSerialNumber()
-                    return decoded
-                except Exception as e:
-                    print("Pylontech decode exception ", e.args)
-            return None
+        retryCount = 0
+        packet_data = self.encode.getSerialNumber(battNumber=batt, group=self.group)
+        self.pylon.send(packet_data)
+        raws = self.pylon.receive(20000)  # serial number should provide a fast answer.
+        if raws is not None:
+            self.decode.decode_header(raws)
+            try:
+                decoded = self.decode.decodeSerialNumber()
+                return decoded
+            except Exception as e:
+                print("Pylontech decode exception ", e.args)
+        return None
  
     def update(self):
         """! Stack polling function.
@@ -109,7 +109,7 @@ class PylontechStack:
             try:
                 self.pylon.send(self.encode.getAnalogValue(battNumber=batt, group=self.group))
                 raws = self.pylon.receive()
-                self.decode.decode_header(raws[0])
+                self.decode.decode_header(raws)
                 decoded = self.decode.decodeAnalogValue()
                 strip_header(decoded)
                 analogList.append(decoded)
@@ -135,21 +135,21 @@ class PylontechStack:
                 #print('charging') 
                 self.pylon.send(self.encode.getChargeDischargeManagement(battNumber=batt, group=self.group))
                 raws = self.pylon.receive()
-                self.decode.decode_header(raws[0])
+                self.decode.decode_header(raws)
                 decoded = self.decode.decodeChargeDischargeManagementInfo()
                 strip_header(decoded)
                 chargeDischargeManagementList.append(decoded)
                 #print('AlarmInfo')
                 self.pylon.send(self.encode.getAlarmInfo())
                 raws = self.pylon.receive()
-                self.decode.decode_header(raws[0])
+                self.decode.decode_header(raws)
                 decoded = self.decode.decodeAlarmInfo()
                 strip_header(decoded)
                 alarmInfoList.append(decoded)
 
                 self.pylon.send(self.encode.getSystemParameter())
                 raws = self.pylon.receive()
-                self.decode.decode_header(raws[0])
+                self.decode.decode_header(raws)
                 decoded = self.decode.decodeSystemParameter()
                 strip_header(decoded)
                 systemParameterList.append(decoded)
@@ -191,7 +191,7 @@ def process_command(key, batt=0):
             pylon.send(e.getProtocolVersion())
             raws = pylon.receive()
             if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 decoded_p = d.decodePotocolVersion()
                 return strip_header(decoded_p)
             else:
@@ -200,7 +200,7 @@ def process_command(key, batt=0):
            pylon.send(e.getManufacturerInfo())
            raws = pylon.receive()
            if raws:
-               d.decode_header(raws[0])
+               d.decode_header(raws)
                decoded_m = d.decodeManufacturerInfo()
                return strip_header(decoded_m)
            else:
@@ -209,7 +209,7 @@ def process_command(key, batt=0):
            pylon.send(e.getAlarmInfo(batt))
            raws = pylon.receive()
            if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 return strip_header(d.decodeAlarmInfo())
            else:
                 return None
@@ -217,7 +217,7 @@ def process_command(key, batt=0):
             pylon.send(e.getChargeDischargeManagement(batt))
             raws = pylon.receive()
             if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 return strip_header(d.decodeChargeDischargeManagementInfo())
             else:
                 return None
@@ -225,7 +225,7 @@ def process_command(key, batt=0):
             pylon.send(e.getAnalogValue(batt))
             raws = pylon.receive()
             if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 return strip_header(d.decodeAnalogValue())
             else:
                 return None
@@ -233,7 +233,7 @@ def process_command(key, batt=0):
             pylon.send(e.getSerialNumber(batt))
             raws = pylon.receive()
             if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 return strip_header(d.decodeSerialNumber())
             else:
                 return None
@@ -241,7 +241,7 @@ def process_command(key, batt=0):
             pylon.send(e.getSystemParameter())
             raws = pylon.receive()
             if raws:
-                d.decode_header(raws[0])
+                d.decode_header(raws)
                 return strip_header(d.decodeSystemParameter())
             else:
                 return None

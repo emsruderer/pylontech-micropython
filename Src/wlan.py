@@ -8,8 +8,8 @@ import sys
 import struct
 import ubinascii
 
-SSID = "Network"
-PASSWORD = "Password"
+SSID = "LocalNetwork"
+PASSWORD = "LocalPassword"
 
 DEBUG = False
 VERBOSE = True

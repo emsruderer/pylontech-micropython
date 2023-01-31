@@ -1,6 +1,7 @@
 # PylontechRS485 handles send & receive and Prefix/suffix/checksum and timeout handling.
 import time
 import machine
+import sys
 from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
@@ -9,20 +10,9 @@ DEBUG = False
 VERBOSE = False
 
 def print_dict(d : Dict):
-    for key, value  in d.items():
-        print(key,':', value)
+    for key in d:
+        print(key,':', d[key])
     print('-----------------------------------')
-
-CID = ['protocol',
-       'manufactory',
-       'analog',
-       'alarm',
-       'charging',
-       'serialnumber',
-       'systemparameter',
-       'status',
-       'reboot',
-       'undefined']
 
 def strip_header(data):
     if data:
@@ -36,14 +26,25 @@ def strip_header(data):
         del data['ADR']
     return data
 
-class PylontechStack:
+class PylontechMenu:
     """! Whole battery stack abstraction layer.
     This class provides an easy-to-use interface to poll all batteries and get
     a ready calculated overall status for te battery stack.
     All Data polled is attached as raw result lists as well.
     """
 
-    def __init__(self, rs485, encode, decode, manualBattcountLimit=15, group=0):
+    CID = ['protocol',
+           'manufactory',
+           'analog',
+           'alarm',
+           'charging',
+           'serialnumber',
+           'systemparameter',
+           'status',
+           'reboot',
+           'undefined']
+
+    def __init__(self, manualBattcountLimit=15, group=0):
         """! The class initializer.
         @param device  RS485 device number 0/1.
         @param baud  RS485 baud rate. Usually 9500 or 115200 for 
@@ -52,9 +53,9 @@ class PylontechStack:
 
         @return  An instance of the Sensor class initialized with the specified name.
         """
-        self.pylon = rs485
-        self.encode = encode
-        self.decode = decode
+        self.pylon = PylontechRS485(0, baud=115200)
+        self.encode = PylontechEncode()
+        self.decode =  PylontechDecode()
         self.pylonData = {}
         self.group = group
 
@@ -106,59 +107,53 @@ class PylontechStack:
         minimum_temperature = 60.0
         maximum_temperature = -10.0
         for batt in range(0, self.battcount):
-            try:
-                self.pylon.send(self.encode.getAnalogValue(battNumber=batt, group=self.group))
-                raws = self.pylon.receive()
-                self.decode.decode_header(raws)
-                decoded = self.decode.decodeAnalogValue()
-                strip_header(decoded)
-                analogList.append(decoded)
+            self.pylon.send(self.encode.getAnalogValue(battNumber=batt, group=self.group))
+            raws = self.pylon.receive()
+            self.decode.decode_header(raws)
+            decoded = self.decode.decodeAnalogValue()
+            strip_header(decoded)
+            analogList.append(decoded)
 
-                cellVoltageList = decoded['CellVoltages']
-                for voltage in cellVoltageList:
-                    if voltage > maximum_cell_voltage:
-                        maximum_cell_voltage = voltage
-                    elif voltage < minimum_cell_voltage:
-                        minimum_cell_voltage= voltage
+            cellVoltageList = decoded['CellVoltages']
+            for voltage in cellVoltageList:
+                if voltage > maximum_cell_voltage:
+                    maximum_cell_voltage = voltage
+                elif voltage < minimum_cell_voltage:
+                    minimum_cell_voltage= voltage
 
-                temperaturesList = decoded['Temperatures']
-                for temperature in temperaturesList:
-                    if temperature > maximum_temperature:
-                        maximum_temperature = temperature
-                    elif temperature < minimum_temperature:
-                        minimum_temperature = temperature
-                
-                remainCapacity = remainCapacity + decoded['RemainingCapacity']
-                totalCapacity = totalCapacity + decoded['ModuleCapacity']
-                totalCurrent = totalCurrent + decoded['Current']
-                power = power + (decoded['Voltage'] * decoded['Current'])
-                #print('charging') 
-                self.pylon.send(self.encode.getChargeDischargeManagement(battNumber=batt, group=self.group))
-                raws = self.pylon.receive()
-                self.decode.decode_header(raws)
-                decoded = self.decode.decodeChargeDischargeManagementInfo()
-                strip_header(decoded)
-                chargeDischargeManagementList.append(decoded)
-                #print('AlarmInfo')
-                self.pylon.send(self.encode.getAlarmInfo())
-                raws = self.pylon.receive()
-                self.decode.decode_header(raws)
-                decoded = self.decode.decodeAlarmInfo()
-                strip_header(decoded)
-                alarmInfoList.append(decoded)
+            temperaturesList = decoded['Temperatures']
+            for temperature in temperaturesList:
+                if temperature > maximum_temperature:
+                    maximum_temperature = temperature
+                elif temperature < minimum_temperature:
+                    minimum_temperature = temperature
+            
+            remainCapacity = remainCapacity + decoded['RemainingCapacity']
+            totalCapacity = totalCapacity + decoded['ModuleCapacity']
+            totalCurrent = totalCurrent + decoded['Current']
+            power = power + (decoded['Voltage'] * decoded['Current'])
+            #print('charging') 
+            self.pylon.send(self.encode.getChargeDischargeManagement(battNumber=batt, group=self.group))
+            raws = self.pylon.receive()
+            self.decode.decode_header(raws)
+            decoded = self.decode.decodeChargeDischargeManagementInfo()
+            strip_header(decoded)
+            chargeDischargeManagementList.append(decoded)
+            #print('AlarmInfo')
+            self.pylon.send(self.encode.getAlarmInfo())
+            raws = self.pylon.receive()
+            self.decode.decode_header(raws)
+            decoded = self.decode.decodeAlarmInfo()
+            strip_header(decoded)
+            alarmInfoList.append(decoded)
 
-                self.pylon.send(self.encode.getSystemParameter())
-                raws = self.pylon.receive()
-                self.decode.decode_header(raws)
-                decoded = self.decode.decodeSystemParameter()
-                strip_header(decoded)
-                systemParameterList.append(decoded)
-            except ValueError as e:
-                print("Exception('Pylontech Value Error')"+str(e))
-            except Exception as e:
-                #self.pylon.reconnect()
-                print("Exception('Pylontech Update Error')")
-
+            self.pylon.send(self.encode.getSystemParameter())
+            raws = self.pylon.receive()
+            self.decode.decode_header(raws)
+            decoded = self.decode.decodeSystemParameter()
+            strip_header(decoded)
+            systemParameterList.append(decoded)
+            
         self.pylonData['AnalogList'] = analogList
         self.pylonData['ChargeDischargeManagementList'] = chargeDischargeManagementList
         self.pylonData['AlarmInfoList'] = alarmInfoList
@@ -181,101 +176,144 @@ class PylontechStack:
         if VERBOSE : print("end update: ", time.time()-starttime)
         return self.pylonData
 
-pylon = PylontechRS485(0, baud=115200)
-e = PylontechEncode()
-d = PylontechDecode()
-pylon_stack = PylontechStack(pylon,e,d, manualBattcountLimit=3, group=0)
+    def process_command(self, key, batt=0):
+      """ while loop to repeat the request in case of exceptions"""
+      SUCCESS = False
+      while not SUCCESS:
+        try:
+            if key == 'protocol':
+                self.pylon.send(self.encode.getProtocolVersion())
+                raws =self.pylon.receive()
+                if raws:
+                    self.decode.decode_header(raws)
+                    decoded_p = self.decode.decodePotocolVersion()
+                    return strip_header(decoded_p)
+                else:
+                    return None
+            elif key == 'manufactory':
+               self.pylon.send(self.encode.getManufacturerInfo())
+               raws =self.pylon.receive()
+               if raws:
+                   self.decode.decode_header(raws)
+                   decoded_m = self.decode.decodeManufacturerInfo()
+                   return strip_header(decoded_m)
+               else:
+                    return None
+            elif key == 'alarm':
+               self.pylon.send(self.encode.getAlarmInfo(batt))
+               raws =self.pylon.receive()
+               if raws:
+                    self.decode.decode_header(raws)
+                    return strip_header(self.decode.decodeAlarmInfo())
+               else:
+                    return None
+            elif key == 'charging':
+                self.pylon.send(self.encode.getChargeDischargeManagement(batt))
+                raws =self.pylon.receive()
+                if raws:
+                    self.decode.decode_header(raws)
+                    return strip_header(self.decode.decodeChargeDischargeManagementInfo())
+                else:
+                    return None
+            elif key == 'analog':
+                self.pylon.send(self.encode.getAnalogValue(batt))
+                raws =self.pylon.receive()
+                if raws:
+                    self.decode.decode_header(raws)
+                    return strip_header(self.decode.decodeAnalogValue())
+                else:
+                    return None
+            elif key == 'serialnumber':
+                self.pylon.send(self.encode.getSerialNumber(batt))
+                raws =self.pylon.receive()
+                if raws:
+                    self.decode.decode_header(raws)
+                    return strip_header(self.decode.decodeSerialNumber())
+                else:
+                    return None
+            elif key == 'systemparameter':
+                self.pylon.send(self.encode.getSystemParameter())
+                raws =self.pylon.receive()
+                if raws:
+                    self.decode.decode_header(raws)
+                    return strip_header(self.decode.decodeSystemParameter())
+                else:
+                    return None
+            elif key == 'status' :
+                stackResult = self.update()
+                if DEBUG :
+                    results = list(stackResult)
+                    for it in results :
+                        print('\n\r', it, '\n\r')
+                        if it == 'Calculated' or it == 'SystemParameter' or it == 'SerialNumbers':
+                            print_dict(stackResult['Calculated'])
+                        else:
+                            print_dict(stackResult[it][0])
+                return stackResult['Calculated']
+            elif key == 'reboot':
+                machine.soft_reset()
+            else:
+                if VERBOSE:
+                    print('Invalid process command')
+                #sys.exit()
+                raise SystemExit('Invalid process command')
+            SUCCESS = True
+ 
+            """ if the battries start to give wrong answers we ask the simplest questions
+                until we get correct answers again """
+        except ValueError as ex:
+            print('Pylontech Value Error ' + str(ex))
+            n = 0
+            try:
+              while n < 10:
+                n += 1
+                self.pylon.send(self.encode.getProtocolVersion())
+                raws = self.pylon.receive()
+                self.pylon.send(self.encode.getProtocolVersion())
+                raws = self.pylon.receive()
+                break
+              continue
+            except:
+              pass
+        except KeyboardInterrupt as ex:
+            sys.exit(1)
+            raise SystemExit
+        except Exception as ex:
+            print('Pylontech Exception ' + str(ex))
+            n = 0
+            try:
+              while n < 10:
+                n += 1
+                self.pylon.send(self.encode.getProtocolVersion())
+                raws = self.pylon.receive()
+                self.pylon.send(self.encode.getProtocolVersion())
+                raws = self.pylon.receive()
+                break
+              continue
+            except:
+                pass               
+        except UnicodeError as ex:
+            print('UnicodeError ' + str(ex))
 
-def process_command(key, batt=0):
-        if key == 'protocol':
-            pylon.send(e.getProtocolVersion())
-            raws = pylon.receive()
-            if raws:
-                d.decode_header(raws)
-                decoded_p = d.decodePotocolVersion()
-                return strip_header(decoded_p)
-            else:
-                return None
-        elif key == 'manufactory':
-           pylon.send(e.getManufacturerInfo())
-           raws = pylon.receive()
-           if raws:
-               d.decode_header(raws)
-               decoded_m = d.decodeManufacturerInfo()
-               return strip_header(decoded_m)
-           else:
-                return None
-        elif key == 'alarm':
-           pylon.send(e.getAlarmInfo(batt))
-           raws = pylon.receive()
-           if raws:
-                d.decode_header(raws)
-                return strip_header(d.decodeAlarmInfo())
-           else:
-                return None
-        elif key == 'charging':
-            pylon.send(e.getChargeDischargeManagement(batt))
-            raws = pylon.receive()
-            if raws:
-                d.decode_header(raws)
-                return strip_header(d.decodeChargeDischargeManagementInfo())
-            else:
-                return None
-        elif key == 'analog':
-            pylon.send(e.getAnalogValue(batt))
-            raws = pylon.receive()
-            if raws:
-                d.decode_header(raws)
-                return strip_header(d.decodeAnalogValue())
-            else:
-                return None
-        elif key == 'serialnumber':
-            pylon.send(e.getSerialNumber(batt))
-            raws = pylon.receive()
-            if raws:
-                d.decode_header(raws)
-                return strip_header(d.decodeSerialNumber())
-            else:
-                return None
-        elif key == 'systemparameter':
-            pylon.send(e.getSystemParameter())
-            raws = pylon.receive()
-            if raws:
-                d.decode_header(raws)
-                return strip_header(d.decodeSystemParameter())
-            else:
-                return None
-        elif key == 'status' :
-            stackResult = pylon_stack.update()
-            if DEBUG :
-                results = list(stackResult)
-                for it in results :
-                    print('\n\r', it, '\n\r')
-                    if it == 'Calculated' or it == 'SystemParameter' or it == 'SerialNumbers':
-                        print_dict(stackResult['Calculated'])
-                    else:
-                        print_dict(stackResult[it][0])
-            return stackResult['Calculated']
-        elif key == 'reboot':
-            print('rebooting')
-            machine.soft_reset()
-        else:
-            raise RuntimeError('Invalid process command')
+
 
 if __name__ == '__main__':
+    pylon_menu = PylontechMenu(manualBattcountLimit=3, group=0)
     STOP = False
     while not STOP:
         n= 0
-        for key in CID:
+        for key in pylon_menu.CID:
             print(n,key)
             n += 1
         command_input = input("\r\n Command nummer, battery number:")
         command = command_input.split(',')
-        key = CID[int(command[0])]
+        key = pylon_menu.CID[int(command[0])]
+        #print(key,type(key))
         if len(command) == 2:
             bat = int(command[1])-1
         else:
             bat = 0
         print(f'\r\nCommand {key}, battery: {bat}')
-        data = process_command(key , bat )
+        data = pylon_menu.process_command(key , bat )
+        #print(data)
         print_dict(data)

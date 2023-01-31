@@ -83,8 +83,8 @@ class Rs485Handler:
         while char != start:
             char = self.ser.read(1)
             if time.ticks_us() > end_wait_time:
-                print("raise Exception('Timeout waiting for start byte.')")
-                return None
+                raise Exception('Timeout waiting for start byte.')
+                #return None
         self.receive_start_time = time.ticks_us()  # just for Timeout handling
         # receive the whole transmission with the trialing byte / end bytes:
         frame = start + self.ser.read()  # this uses the inter_byte_timeout on failure.
@@ -126,7 +126,7 @@ class PylontechRS485:
         self.verbose = level
         self.rs485.verbose = level
  
-    def receive(self, timeout_us=16000):
+    def receive(self, timeout_us=20000):
         """
         try to receive a pylontech type packet from the pico UART.
         checks the packet checksum and returns the packet if the checksum is correct.
@@ -149,19 +149,15 @@ class PylontechRS485:
             data = data[start:-1]
         if data[0] != start_byte[0]:  # default: start = 0x7e = '~', pefix missing
             raise ValueError("no Prefix '{}' received:\nreceived:\n{}".format(start_byte, data[0]))
-            return None
         if data[-1] != end_byte[0]:   # default: end = 0xd = '\r', suffix missing
             raise ValueError("no suffix '{}' received:\nreceived:\n{}".format(end_byte, data[-1]))
-            return None
         package = data[1:-1]  # packet stripped, - without prefix, suffix
         chksum = self.get_chk_sum(package, len(package))
         chksum_from_pkg = int(package[-4:].decode(),16)
         if chksum == chksum_from_pkg:
-            if VERBOSE:
-                print('checksum ok')
             return package
         else:
-            return None
+            print('checksum error')
             raise ValueError(f"crc error;  Soll<->ist: {chksum:04x} --- {chksum_from_pkg:04x}")
         
     @staticmethod

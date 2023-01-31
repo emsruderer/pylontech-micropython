@@ -10,7 +10,8 @@ VERBOSE = False
 
 wlan = Wifi()
 #rtc = wlan.get_rtc()
-#print(rtc.datetime())137
+#print(rtc.datetime())
+menu = menu.PylontechMenu()
 
 def print_dict(d : Dict):
     for key in d:
@@ -83,7 +84,7 @@ def make_html(data, command, battery):
              '<input type="submit" value="Request"></form>'
            
     html_com = make_command_select(menu.CID,command)
-    html_bat = make_battery_select(menu.pylon_stack.get_module_count(),battery)
+    html_bat = make_battery_select(menu.get_module_count(),battery)
   
     html_table = make_table(head,table)
     

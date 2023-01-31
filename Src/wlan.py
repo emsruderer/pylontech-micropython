@@ -9,7 +9,7 @@ import struct
 import ubinascii
 
 SSID = "LocalNetwork"
-PASSWORD = "LocalPassword"
+PASSWORD = "PASSWORD"
 
 DEBUG = False
 VERBOSE = True

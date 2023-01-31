@@ -142,6 +142,7 @@ while not STOP:
             if not line or line == b"\r\n":
                 break
         result_dict = menu.process_command(command, battery)
+        #sorted(result_dict)
         #data_dict = menu.strip_header(result_dict)
         response = make_html(result_dict,command, battery) 
         #if VERBOSE : print(response)

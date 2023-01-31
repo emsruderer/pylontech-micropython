@@ -2,6 +2,7 @@
 import time
 import machine
 import sys
+from collections import OrderedDict as Dict
 from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
@@ -11,7 +12,7 @@ VERBOSE = False
 
 def print_dict(d : Dict):
     for key in d:
-        print(key,':', d[key])
+        print(key,':', str(d[key]))
     print('-----------------------------------')
 
 def strip_header(data):
@@ -56,7 +57,7 @@ class PylontechMenu:
         self.pylon = PylontechRS485(0, baud=115200)
         self.encode = PylontechEncode()
         self.decode =  PylontechDecode()
-        self.pylonData = {}
+        self.pylonData = Dict()
         self.group = group
 
         serialList = []
@@ -68,7 +69,7 @@ class PylontechMenu:
         self.pylonData['SerialNumbers'] = serialList
         self.battcount = len(serialList)
         print(f'batteries: {self.battcount} {serialList}')
-        self.pylonData['Calculated'] = {}
+        self.pylonData['Calculated'] = Dict()
     
     def get_module_count(self):
         return self.battcount
@@ -101,11 +102,18 @@ class PylontechMenu:
         totalCapacity = 0
         remainCapacity = 0
         totalCurrent = 0
-        power = 0
+        total_power = 0
         minimum_cell_voltage = 4.0
         maximum_cell_voltage = 2.0
         minimum_temperature = 60.0
         maximum_temperature = -10.0
+
+        module_voltage = True
+        discharge_current = True
+        charge_current = True
+        temperature = True
+        cell_alarm = True
+
         for batt in range(0, self.battcount):
             self.pylon.send(self.encode.getAnalogValue(battNumber=batt, group=self.group))
             raws = self.pylon.receive()
@@ -131,7 +139,7 @@ class PylontechMenu:
             remainCapacity = remainCapacity + decoded['RemainingCapacity']
             totalCapacity = totalCapacity + decoded['ModuleCapacity']
             totalCurrent = totalCurrent + decoded['Current']
-            power = power + (decoded['Voltage'] * decoded['Current'])
+            total_power = total_power + (decoded['Voltage'] * decoded['Current'])
             #print('charging') 
             self.pylon.send(self.encode.getChargeDischargeManagement(battNumber=batt, group=self.group))
             raws = self.pylon.receive()
@@ -146,7 +154,16 @@ class PylontechMenu:
             decoded = self.decode.decodeAlarmInfo()
             strip_header(decoded)
             alarmInfoList.append(decoded)
-
+            temperaturesList = decoded['Temperature']
+            for temp_ok in temperaturesList:
+                temperature = temperature and temp_ok
+            discharge_current = discharge_current and decoded['DischargeCurrent']
+            charge_current = charge_current and decoded['ChargeCurrent']
+            module_voltage = module_voltage and decoded['ModuleVoltage']
+            cellList = decoded['CellAlarm']
+            for cell in cellList:
+                cell_alarm = cell_alarm and cell
+                
             self.pylon.send(self.encode.getSystemParameter())
             raws = self.pylon.receive()
             self.decode.decode_header(raws)
@@ -159,20 +176,25 @@ class PylontechMenu:
         self.pylonData['AlarmInfoList'] = alarmInfoList
         self.pylonData['SystemParameterList']= systemParameterList
          
-        self.pylonData['Calculated']['TotalCapacity_Ah'] = round(totalCapacity,1)
-        self.pylonData['Calculated']['Capacity_kWh'] = round(50 * totalCapacity/1000,3)
-        self.pylonData['Calculated']['RemainingCapacity_Ah'] = round(remainCapacity,1)
-        self.pylonData['Calculated']['RemainingEnergy_kWh'] = round(50 * remainCapacity /1000, 3)
         if totalCapacity > 0:
             self.pylonData['Calculated']['Remaining_%'] = round((remainCapacity / totalCapacity) * 100, 1)
         else:
             self.pylonData['Calculated']['Remaining_%'] = 0
+        self.pylonData['Calculated']['RemainingEnergy_kWh'] = round(48 * remainCapacity /1000, 3)
+        self.pylonData['Calculated']['Capacity_kWh'] = round(48 * totalCapacity/1000,3)
+        self.pylonData['Calculated']['RemainingCapacity_Ah'] = round(remainCapacity,1)
+        self.pylonData['Calculated']['TotalCapacity_Ah'] = round(totalCapacity,1)
+        self.pylonData['Calculated']['Charging_Watt'] = round(total_power, 1)
         self.pylonData['Calculated']['Current_Amp'] = round(totalCurrent,1)
-        self.pylonData['Calculated']['Charging_Watt'] = round(power, 1)
+        self.pylonData['Calculated']['ChargeCurrent'] = charge_current
+        self.pylonData['Calculated']['DischargeCurrent'] = discharge_current
+        self.pylonData['Calculated']['ModuleVoltage'] = module_voltage
         self.pylonData['Calculated']['MinimumCellVoltage'] = round(minimum_cell_voltage,2)
         self.pylonData['Calculated']['MaximumCellVoltage'] = round(maximum_cell_voltage,2)
+        self.pylonData['Calculated']['CellAlarm'] = cell_alarm
         self.pylonData['Calculated']['MinimumTemperature'] = round(minimum_temperature,1)
         self.pylonData['Calculated']['MaximumTemperature'] = round(maximum_temperature,1)
+        self.pylonData['Calculated']['Temperature'] = temperature
         if VERBOSE : print("end update: ", time.time()-starttime)
         return self.pylonData
 

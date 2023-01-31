@@ -132,13 +132,13 @@ class PylontechDecode:
             for c in range(0, self.data['TemperatureCount']):
                 temperatureAlarm.append(self.alarm(payload[i:i + 2]))
                 i = i + 2
-            self.data['TemperatureAlarm'] = temperatureAlarm
+            self.data['Temperature'] = temperatureAlarm
 
-            self.data['ChargeCurentAlarm'] = self.alarm(payload[i:i + 2])
+            self.data['ChargeCurrent'] = self.alarm(payload[i:i + 2])
             i = i + 2
-            self.data['ModuleVoltageAlarm'] = self.alarm(payload[i:i + 2])
+            self.data['ModuleVoltage'] = self.alarm(payload[i:i + 2])
             i = i + 2
-            self.data['DischargeCurrentAlarm'] = self.alarm(payload[i:i + 2])
+            self.data['DischargeCurrent'] = self.alarm(payload[i:i + 2])
             i = i + 2
             self.data['Status1'] = int(payload[i:i + 2], 16)
             i = i + 2
@@ -159,11 +159,11 @@ class PylontechDecode:
         payload = self.data['PAYLOAD']
         if (self.data['ID'] == 0x46) and (len(payload) == 50):
             i = 2
-            self.data['UnitCellVoltage'] = self.cellVoltage(payload[i:i+4])
+            self.data['CellUpperVoltageLimit'] = self.cellVoltage(payload[i:i+4])
             i += 4
-            self.data['UnitCellLowVoltageThreshold'] = self.cellVoltage(payload[i:i+4])
+            self.data['CellLowVoltageLimit'] = self.cellVoltage(payload[i:i+4])
             i += 4
-            self.data['UnitCellUnderVoltageThreshold'] = self.cellVoltage(payload[i:i+4])
+            self.data['CellUnderVoltageThreshold'] = self.cellVoltage(payload[i:i+4])
             i += 4
             self.data['ChargeUpperTemperatureLimit'] = self.temperature(payload[i:i+4])
             i += 4
@@ -175,7 +175,7 @@ class PylontechDecode:
             i += 4
             self.data['LowerVoltageLimit'] = self.moduleVoltage(payload[i:i+4])
             i += 4
-            self.data['UnderVoltageOfTotalVoltage'] = self.moduleVoltage(payload[i:i+4])
+            self.data['UnderVoltageLimit'] = self.moduleVoltage(payload[i:i+4])
             i += 4
             self.data['DischargeUpperTemperatureLimit'] = self.temperature(payload[i:i+4])
             i += 4

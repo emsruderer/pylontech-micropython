@@ -17,3 +17,6 @@ The program consists of:
 Installation by copying the files to the pico:
 
 run by starting the html_server.py or renaming it to main.py
+
+starting in a terminal from minicom with:
+>>>exec(open('html_server.py').read()))

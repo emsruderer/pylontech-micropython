@@ -6,9 +6,9 @@ from collections import OrderedDict as Dict
 from pylontech_base import PylontechRS485
 from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
+import logging 
 
 DEBUG = False
-VERBOSE = False
 
 def print_dict(d : Dict):
     for key in d:
@@ -68,7 +68,7 @@ class PylontechMenu:
             serialList.append(decoded['ModuleSerialNumber'])
         self.pylonData['SerialNumbers'] = serialList
         self.battcount = len(serialList)
-        print(f'batteries: {self.battcount} {serialList}')
+        logging.info(f'batteries: {self.battcount} {serialList}')
         self.pylonData['Calculated'] = Dict()
     
     def get_module_count(self):
@@ -85,7 +85,7 @@ class PylontechMenu:
                 decoded = self.decode.decodeSerialNumber()
                 return decoded
             except Exception as e:
-                print("Pylontech decode exception ", e.args)
+                logging.info("Pylontech decode exception ", e.args)
         return None
  
     def update(self):
@@ -93,7 +93,7 @@ class PylontechMenu:
         @return  A dict with all collected Information.
         """
         starttime=time.time()
-        if VERBOSE : print("start update")
+        logging.debug("start update")
         analogList = []
         chargeDischargeManagementList = []
         alarmInfoList = []
@@ -195,8 +195,23 @@ class PylontechMenu:
         self.pylonData['Calculated']['MinimumTemperature'] = round(minimum_temperature,1)
         self.pylonData['Calculated']['MaximumTemperature'] = round(maximum_temperature,1)
         self.pylonData['Calculated']['Temperature'] = temperature
-        if VERBOSE : print("end update: ", time.time()-starttime)
+        logging.debug("end update: ", time.time()-starttime)
         return self.pylonData
+
+
+    def recover(self):
+        n = 0
+        try:
+          while n < 10:
+            n += 1
+            self.pylon.send(self.encode.getProtocolVersion())
+            raws = self.pylon.receive()
+            self.pylon.send(self.encode.getProtocolVersion())
+            raws = self.pylon.receive()
+            break
+        except:
+            pass               
+
 
     def process_command(self, key, batt=0):
       """ while loop to repeat the request in case of exceptions"""
@@ -275,47 +290,25 @@ class PylontechMenu:
             elif key == 'reboot':
                 machine.soft_reset()
             else:
-                if VERBOSE:
-                    print('Invalid process command')
-                #sys.exit()
+                logging.debug('Invalid process command')
                 raise SystemExit('Invalid process command')
             SUCCESS = True
  
             """ if the battries start to give wrong answers we ask the simplest questions
                 until we get correct answers again """
         except ValueError as ex:
-            print('Pylontech Value Error ' + str(ex))
-            n = 0
-            try:
-              while n < 10:
-                n += 1
-                self.pylon.send(self.encode.getProtocolVersion())
-                raws = self.pylon.receive()
-                self.pylon.send(self.encode.getProtocolVersion())
-                raws = self.pylon.receive()
-                break
-              continue
-            except:
-              pass
+            logging.warning('Pylontech Value Error ' + str(ex))
+            self.recover()
+            continue
         except KeyboardInterrupt as ex:
             sys.exit(1)
             raise SystemExit
         except Exception as ex:
-            print('Pylontech Exception ' + str(ex))
-            n = 0
-            try:
-              while n < 10:
-                n += 1
-                self.pylon.send(self.encode.getProtocolVersion())
-                raws = self.pylon.receive()
-                self.pylon.send(self.encode.getProtocolVersion())
-                raws = self.pylon.receive()
-                break
-              continue
-            except:
-                pass               
+            logging.warning('Pylontech Exception ' + str(ex))
+            self.recover()
+            continue
         except UnicodeError as ex:
-            print('UnicodeError ' + str(ex))
+            logging.warning('UnicodeError ' + str(ex))
 
 
 

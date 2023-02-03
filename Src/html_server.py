@@ -4,13 +4,12 @@ import socket
 from machine import UART, Pin, RTC, reset
 from wlan import Wifi
 import menu
+import logging
+import memory
 
-DEBUG = False
-VERBOSE = False
 
+"""connect to the local network and init (RTC) time fro a timeserver"""
 wlan = Wifi()
-#rtc = wlan.get_rtc()
-#print(rtc.datetime())
 menu = menu.PylontechMenu()
 
 def print_dict(d : Dict):
@@ -68,7 +67,7 @@ def make_html(data, command, battery):
     if data and len(data) > 0:
         for key in data:
             table.append([key,data[key]])
-            if DEBUG: print(key,data[key])
+            logging.debug(key,data[key])
     html_b= """<!DOCTYPE html>
     <html>
         <head><title>Pylontech Modules</title>
@@ -94,70 +93,75 @@ def make_html(data, command, battery):
 
 try:
     # Open socket
-    addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
+    addr = socket.getaddrinfo("0.0.0.0", 81)[0][-1]
 
     s = socket.socket()
+    s.connect
     s.bind(addr)
 
     s.listen(1)
-except:
-    print("socket exception")
+except Exception as ex:
+    logging.exception("socket exception",ex)
     s.close()
-    #sys.exit(1)
-    reset()
+    machine.soft_reset()
+    raise RuntimeError(ex)
 
 
-# Listen for connections
-STOP = False
-command = 'status'
-battery = 1
-command_dict = {}
-wlan.create_heartbeat()
-while not STOP:
-    try:
-        if VERBOSE: print("listening on", addr)
-        cl, addr_cl = s.accept()
-        cl_file = cl.makefile("rwb", 0)
-        if VERBOSE: print("\r\nclient connected from", addr_cl)
-        line = cl_file.readline()
-        #if VERBOSE: print(line)
-        if line.startswith(b'GET') and b'?' in line:
-            str1 = str(line,'utf-8')
-            result = str1.split()[1].split('?')
-            if len(result) > 1:
-                requests = result[1].split('&')
-                for el in requests:
-                    spl = (el.split('='))
-                    if DEBUG: print(spl, len(spl))
-                    command_dict[spl[0]] = spl[1]
-                    if 'command' in command_dict:
-                        command = command_dict['command']
-                    if 'battery' in command_dict:
-                        battery = int(command_dict['battery'])-1
-            if VERBOSE:
-                print(f'command={command}&battery={battery}',type(command),type(battery))
-        while True:
+def main():
+    logging.setLevel(logging.WARNING)
+    #logging.setLevel(logging.INFO)
+    memory.memory_thread()
+    STOP = False
+    command = 'status'
+    battery = 1
+    command_dict = {}
+    wlan.create_heartbeat()
+    while not STOP:
+        logging.debug("Listen for connections")
+        try:
+            logging.info("listening on" + str(addr))
+            cl, addr_cl = s.accept()
+            cl_file = cl.makefile("rwb", 0)
+            logging.info("\r\nclient connected from" + str( addr_cl))
             line = cl_file.readline()
-            if DEBUG: print(f"readline={line}")
-            if not line or line == b"\r\n":
-                break
-        result_dict = menu.process_command(command, battery)
-        #sorted(result_dict)
-        #data_dict = menu.strip_header(result_dict)
-        response = make_html(result_dict,command, battery) 
-        #if VERBOSE : print(response)
-        cl.send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
-        cl.send(response)
-    except OSError as e:
-        print('OSError')
-        cl.close()
-        print('connection closed')
-    except KeyboardInterrupt:
-        print("Keyboard Interrupt")
-        STOP = True
-        s.close()
-        wlan.stop_heartbeat()
-        wlan.disconnect()
-    finally:
-        cl.close()
-        if VERBOSE: print("connection closed")
+            logging.debug(line)
+            if line.startswith(b'GET') and b'?' in line:
+                str1 = str(line,'utf-8')
+                result = str1.split()[1].split('?')
+                if len(result) > 1:
+                    requests = result[1].split('&')
+                    for el in requests:
+                        spl = (el.split('='))
+                        logging.debug(spl, len(spl))
+                        command_dict[spl[0]] = spl[1]
+                        if 'command' in command_dict:
+                            command = command_dict['command']
+                        if 'battery' in command_dict:
+                            battery = int(command_dict['battery'])-1
+                logging.info(f'command={command}&battery={battery}',type(command),type(battery))
+            while True:
+                line = cl_file.readline()
+                logging.debug(f"readline={line}")
+                if not line or line == b"\r\n":
+                    break
+            result_dict = menu.process_command(command, battery)
+            response = make_html(result_dict,command, battery) 
+            logging.debug(response)
+            cl.send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
+            cl.send(response)
+        except OSError as ex:
+            logging.exception('OSError',ex)
+            cl.close()
+            logging.info('connection closed')
+        except KeyboardInterrupt:
+            logging.info("Keyboard Interrupt")
+            STOP = True
+            s.close()
+            wlan.stop_heartbeat()
+            wlan.disconnect()
+        finally:
+            cl.close()
+            logging.info("connection closed")
+
+if __name__ == "__main__":
+    main()

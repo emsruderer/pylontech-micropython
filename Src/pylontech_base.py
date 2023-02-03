@@ -10,8 +10,7 @@
 
 from machine import UART, Pin
 import time
-
-VERBOSE = False
+import logging 
 
 CHKSUM_BYTES = 4
 EOI_BYTES = 1
@@ -76,7 +75,7 @@ class Rs485Handler:
         while self.ser.any() == 0:
             time.sleep_us(10)
             if time.ticks_us() > end_wait_time:
-               print('Timeout waiting for an answer.')
+               logging.info('Timeout waiting for an answer.')
                return None
         char = self.ser.read(1)
         # wait for leading byte / start byte

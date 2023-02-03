@@ -1,3 +1,5 @@
+from collections import OrderedDict as Dict
+
 class PylontechDecode:
     def __init__(self):
         self.data = {}
@@ -52,7 +54,7 @@ class PylontechDecode:
         return (temp - 2731) / 10.0
 
     def decode_header(self, rawdata):
-        header = {}
+        header = Dict()
         if rawdata:
             header['VER'] = int(rawdata[0:2], 16)
             header['ADR'] = int(rawdata[2:4], 16)
@@ -163,7 +165,7 @@ class PylontechDecode:
             i += 4
             self.data['CellLowVoltageLimit'] = self.cellVoltage(payload[i:i+4])
             i += 4
-            self.data['CellUnderVoltageThreshold'] = self.cellVoltage(payload[i:i+4])
+            self.data['CellUnderVoltageLimit'] = self.cellVoltage(payload[i:i+4])
             i += 4
             self.data['ChargeUpperTemperatureLimit'] = self.temperature(payload[i:i+4])
             i += 4

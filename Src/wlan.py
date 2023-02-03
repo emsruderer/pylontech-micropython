@@ -7,9 +7,10 @@ import rp2
 import sys
 import struct
 import ubinascii
+import logging 
 
-SSID = "LocalNetwork"
-PASSWORD = "PASSWORD"
+SSID = "Localnetwork"
+PASSWORD = "Password"
 
 DEBUG = False
 VERBOSE = True
@@ -21,14 +22,6 @@ LINK_UP = 3
 LINK_FAIL = -1
 LINK_NONET = -2
 LINK_BADAUTH = -3
-
-"""
-# connect GPIO 22 with RUN (29 with 30) to reset the pico
-def reset():
-    machine.reset()
-    p = Pin(22, Pin.OUT)
-    p.off()
-    """
 
 # use onboard LED for a active internet connection
 def led_on():
@@ -47,8 +40,10 @@ import urequests
 
 counter = 0
 period = 60
-router = "192.168.0.1"
+router = "192.168.20.1"
 start = time.ticks_ms() 
+
+rtc = RTC()
 
 def set_router(ip):
     global router
@@ -58,16 +53,17 @@ def set_router(ip):
     if not tries to reconnect. Still buggy, do not use it unless trying to make the program more robust
     Not usefull during development of the functionality
 """
-def alive(c):
+def alive():
     global start
-    delta = time.ticks_diff(time.ticks_ms(), start)/1000
     global counter
+    delta = time.ticks_diff(time.ticks_ms(), start)/1000
     counter += 1
-    #if VERBOSE: print(counter)
+    logging.info(counter)
     if counter % 60 == 0:
         try:
-            print(f"alive {delta}")
+            logging.info(f"alive {delta}")
             print(counter)
+            return
             r = urequests.get(f"http://{router}")
             if r:
                 print('get',r.text)
@@ -96,7 +92,7 @@ class Wifi:
             max_wait -= 1
             led_on()
             if VERBOSE:
-                print("waiting for connection...")
+                logging.info("waiting for connection...")
             time.sleep(1)
             led_off()
 
@@ -108,13 +104,12 @@ class Wifi:
             raise RuntimeError(f"network connection failed {problem}")
         else:
             led_on()
-            if VERBOSE:
-                print("connected")
+            logging.info("connected")
             self.status = self.wlan.ifconfig()
             self.router = self.status[3]
-            if VERBOSE:
-                for x in range(len(self.status)):
-                    print("ip = " + self.status[x])
+            for x in range(len(self.status)):
+                logging.info("ip = " + self.status[x])
+            self.init_rtc()
 
     def reconnect(self):
         self.wlan.close()
@@ -152,10 +147,10 @@ class Wifi:
     """ Trying to use the pico watchdog for this in combination with a 'main.py' led to problems.
         I had to nuke the pico to make available/usable again """
     def create_heartbeat(self):
-        set_router(self.get_router())
+        #set_router(self.get_router())
         if HEARTBEAT:
-            self.timer = Timer(period=1000, mode=Timer.PERIODIC, callback=lambda counter: alive(0))
-            print('timer created')
+            self.timer = Timer(period=1000, mode=Timer.PERIODIC, callback=lambda t:alive)
+            logging.info('timer created')
         
     def stop_heartbeat(self):
         if HEARTBEAT:
@@ -168,19 +163,21 @@ class Wifi:
         self.data = b"\x1b" + 47 * b"\0"
         self.client.sendto(self.data, self.sockaddr)
         self.data, self.address = self.client.recvfrom(1024)
-        # print(data, address)
+        logging.debug(str(self.data) +'-'+str(self.address))
         if self.data:
             t = struct.unpack("!12I", self.data)[10]
             t -= REF_TIME_1970
+        logging.debug(t)
         return t
 
-    def get_rtc(self):
-        rtc = RTC()
-        d = time.gmtime(self.request_time())
-        rtc.datetime((d[0], d[1], d[2], d[6], d[3], d[4], d[5], 0))
-        if VERBOSE:
-            print("GMT: {}:{}:{} {}-{}-{}".format(d[3], d[4], d[5], d[2], d[1], d[0]))
-        return rtc
+    def init_rtc(self):
+        global rtc
+        t = self.request_time()
+        d = time.localtime(t)
+        logging.debug(d)
+        tup = (d[0],d[1],d[2],d[6],d[3]+1, d[4], d[5], d[7])
+        rtc.datetime(tup)
+        logging.info(f"UTC:{d[3]}:{d[4]}:{d[5]} {d[2]}-{d[1]}-{d[0]}; 'day of week':{d[6]}; 'day of year':{d[7]}")
 
     def disconnect(self):
         self.wlan.active(False)
@@ -191,22 +188,22 @@ class Wifi:
 
 if __name__ == "__main__":
     try:
-        HEARTBEAT =  True
+        logging.setLevel(logging.INFO)
+        HEARTBEAT =  False
         wlan = Wifi(SSID, PASSWORD)
-        #set_router(wlan.get_router())
-        rtc = wlan.get_rtc()
-        d = time.gmtime(wlan.request_time())
-        print("GMT: {}:{}:{} {}-{}-{}".format(d[3], d[4], d[5], d[2], d[1], d[0]))
-        wlan.create_heartbeat()
+        d = time.localtime()
+        print(f"{d[3]}:{d[4]}:{d[5]} {d[2]}-{d[1]}-{d[0]} weekday {d[6]} yearday {d[7]}")
+        #wlan.create_heartbeat()
         while True:
             print('main alive')
             time.sleep(10)
     except KeyboardInterrupt:
         print('KeyboardInterrupt')
-        wlan.stop_heartbeat()
+       # wlan.stop_heartbeat()
         wlan.disconnect()
         sys.exit(1)
+    except Exception as ex:
+        logging.error('exception ' + str(ex))
     finally :
-        wlan.stop_heartbeat()
         wlan.disconnect()
         sys.exit(0)

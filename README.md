@@ -20,3 +20,8 @@ run by starting the html_server.py or renaming it to main.py
 
 starting in a terminal from minicom with:
 >>>exec(open('html_server.py').read()))
+
+For performance and robustness two modules are added:
+logging and memory:
+-logging to regulate, redirect and minimize, the standard/serial output in production
+-memory to check the pico sram and filesystem in a seperate thread

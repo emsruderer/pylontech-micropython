@@ -24,4 +24,5 @@ starting in a terminal from minicom with:
 For performance and robustness two modules are added:
 logging and memory:
 -logging to regulate, redirect and minimize, the standard/serial output in production
--memory to check the pico sram and filesystem in a seperate thread
+-memory to check the pico sram and filesystem in a separate thread
+-a heartbeat timer may ping the local router to check connectivity

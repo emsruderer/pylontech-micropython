@@ -2,6 +2,9 @@
 
 import sys
 import time
+import os
+
+DEFAULT= "Geen bericht, goed bericht"
 
 CRITICAL = const(50)
 ERROR = const(40)
@@ -25,18 +28,20 @@ _loggers = dict()
 
 
 class Logger:
-
-    def __init__(self, name):
+    MAX_FILE_SIZE = 10000
+    
+    def __init__(self, name, fn = None):
         self.name = name
         self.level = _level
+        self.filename = fn
 
-    def log(self, level, message, *args):
+    def log(self, level, message = DEFAULT, **args):
         if level < self.level:
             return
 
         try:
-            #if args:
-            #    message = message % args
+            if args:
+                message = message.format(**args) # message {extra_info}, {"extra_info": "this_info"}
 
             record = dict()
             record["levelname"] = _level_str.get(level, str(level))
@@ -46,13 +51,14 @@ class Logger:
             tm = time.localtime()
             record["asctime"] = f"{tm[0]:4}-{tm[1]}-{tm[2]} {tm[3]:2}:{tm[4]:2}:{tm[5]:2}"
  
-            log_str = f'{record["name"]}:{record["asctime"]}  {record["levelname"]:8} -- {record["message"]}\n'
+            log_str = "{name}:{asctime}  {levelname:8}--{message}\n".format(**record)
 
-            if _filename is None:
+            if self.filename is None:
                 _ = _stream.write(log_str)
             else:
-                with open(_filename, "a") as fp:
+                with open(self.filename, "a") as fp:
                     fp.write(log_str)
+                self.check_logfile(self.filename)
 
         except Exception as e:
             print("--- Logging Error ---")
@@ -65,23 +71,23 @@ class Logger:
     def setLevel(self, level):
         self.level = level
 
-    def debug(self, message, *args):
-        self.log(DEBUG, message, *args)
+    def debug(self, message, **args):
+        self.log(DEBUG, message, **args)
 
-    def info(self, message, *args):
-        self.log(INFO, message, *args)
+    def info(self, message, **args):
+       self.log(INFO, message, **args)
 
-    def warning(self, message, *args):
-        self.log(WARNING, message, *args)
+    def warning(self, message, **args):
+        self.log(WARNING, message, **args)
 
     def error(self, message, *args):
         self.log(ERROR, message, *args)
 
-    def critical(self, message, *args):
-        self.log(CRITICAL, message, *args)
+    def critical(self, message, **args):
+        self.log(CRITICAL, message, **args)
 
-    def exception(self, exception, message, *args):
-        self.log(ERROR, message, *args)
+    def exception(self, exception, message, **args):
+        self.log(ERROR, message, **args)
 
         if _filename is None:
             sys.print_exception(exception, _stream)
@@ -89,10 +95,21 @@ class Logger:
             with open(_filename, "a") as fp:
                 sys.print_exception(exception, fp)
 
+    def check_logfile(self,filename, max_filesize=MAX_FILE_SIZE):
+        stat = os.stat(filename)
+        filesize = stat[6]
+        if filesize >= max_filesize:
+            backup = filename[0:-3] + 'bak'
+            try:
+                os.remove(backup)
+            except OSError:
+                pass
+            os.rename(filename, backup)
 
-def getLogger(name="pylontech"):
+
+def getLogger(name="pylontech",filename=None):
     if name not in _loggers:
-        _loggers[name] = Logger(name)
+        _loggers[name] = Logger(name,filename)
     return _loggers[name]
 
 
@@ -134,3 +151,16 @@ def critical(message, *args):
 
 def exception(exception, message, *args):
     getLogger().exception(exception, message, *args)
+
+
+if __name__ == '__main__':
+    logger= getLogger('mine')
+    logger.critical("this problem is critical")
+    logger.error("this is an error")
+    logger.warning("a warning message")
+    logger.info("message plus {extra_info}", **{"extra_info": "'this_extra_info'"})
+    
+    try:
+        3/0
+    except ZeroDivisionError as ex:
+        logger.exception(ex, ex.args[0])

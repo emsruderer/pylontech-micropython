@@ -10,7 +10,8 @@
 
 from machine import UART, Pin
 import time
-import logging 
+import logging
+log = logging.getLogger("base","base.log")
 
 CHKSUM_BYTES = 4
 EOI_BYTES = 1
@@ -75,7 +76,7 @@ class Rs485Handler:
         while self.ser.any() == 0:
             time.sleep_us(10)
             if time.ticks_us() > end_wait_time:
-               logging.info('Timeout waiting for an answer.')
+               log.info('Timeout waiting for an answer.')
                return None
         char = self.ser.read(1)
         # wait for leading byte / start byte
@@ -191,10 +192,11 @@ class PylontechRS485:
         self.rs485.close()
 
 if __name__ == '__main__':
+    log.setLevel(logging.DEBUG)
     handler = PylontechRS485(0,115200)
     handler.verbose(11)
     frame = b'2002464FC0048520'  # get protocol version
     handler.send(frame)
     raw = handler.receive()
-    print('raw', raw)
+    log.info(f'raw {raw}')
 

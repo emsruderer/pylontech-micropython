@@ -2,11 +2,12 @@ import time
 import network
 import socket
 from machine import UART, Pin, RTC, reset
-from wlan import Wifi
+from wlan import Wifi, led_off
 import menu
 import logging
 import memory
 
+logger = logging.getLogger('html','html.log')
 
 """connect to the local network and init (RTC) time fro a timeserver"""
 wlan = Wifi()
@@ -67,7 +68,7 @@ def make_html(data, command, battery):
     if data and len(data) > 0:
         for key in data:
             table.append([key,data[key]])
-            logging.debug(key,data[key])
+            logger.debug(key+ str(data[key]))
     html_b= """<!DOCTYPE html>
     <html>
         <head><title>Pylontech Modules</title>
@@ -93,38 +94,40 @@ def make_html(data, command, battery):
 
 try:
     # Open socket
-    addr = socket.getaddrinfo("0.0.0.0", 81)[0][-1]
+    addr = socket.getaddrinfo("0.0.0.0",80)[0][-1]
+    #socket.setsockopt(level, socket.SOCK_STREAM, value)
 
     s = socket.socket()
-    s.connect
+    #s.connect()
     s.bind(addr)
 
     s.listen(1)
 except Exception as ex:
-    logging.exception("socket exception",ex)
+    logger.exception(ex,"socket exception")
+    led_off()
     s.close()
     machine.soft_reset()
     raise RuntimeError(ex)
 
 
 def main():
-    logging.setLevel(logging.WARNING)
-    #logging.setLevel(logging.INFO)
-    memory.memory_thread()
+    logger.setLevel(logging.WARNING)
+    #logger.setLevel(logger.INFO)
+    #memory.memory_thread()
     STOP = False
     command = 'status'
     battery = 1
     command_dict = {}
     wlan.create_heartbeat()
     while not STOP:
-        logging.debug("Listen for connections")
+        logger.debug("Listen for connections")
         try:
-            logging.info("listening on" + str(addr))
+            logger.info("listening on" + str(addr))
             cl, addr_cl = s.accept()
             cl_file = cl.makefile("rwb", 0)
-            logging.info("\r\nclient connected from" + str( addr_cl))
+            logger.info("\r\nclient connected from" + str( addr_cl))
             line = cl_file.readline()
-            logging.debug(line)
+            logger.debug(line)
             if line.startswith(b'GET') and b'?' in line:
                 str1 = str(line,'utf-8')
                 result = str1.split()[1].split('?')
@@ -132,36 +135,39 @@ def main():
                     requests = result[1].split('&')
                     for el in requests:
                         spl = (el.split('='))
-                        logging.debug(spl, len(spl))
                         command_dict[spl[0]] = spl[1]
                         if 'command' in command_dict:
                             command = command_dict['command']
                         if 'battery' in command_dict:
                             battery = int(command_dict['battery'])-1
-                logging.info(f'command={command}&battery={battery}',type(command),type(battery))
             while True:
                 line = cl_file.readline()
-                logging.debug(f"readline={line}")
+                logger.debug(f"readline={line}")
                 if not line or line == b"\r\n":
                     break
             result_dict = menu.process_command(command, battery)
             response = make_html(result_dict,command, battery) 
-            logging.debug(response)
+            logger.debug(response)
             cl.send("HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n")
             cl.send(response)
         except OSError as ex:
-            logging.exception('OSError',ex)
+            logger.exception(ex,'OSError')
             cl.close()
-            logging.info('connection closed')
+            logger.info('connection closed')
         except KeyboardInterrupt:
-            logging.info("Keyboard Interrupt")
+            logger.info("Keyboard Interrupt")
             STOP = True
             s.close()
             wlan.stop_heartbeat()
             wlan.disconnect()
         finally:
+            logger.info("closing connection")
             cl.close()
-            logging.info("connection closed")
+
 
 if __name__ == "__main__":
+    import memory
+    memory.check_ram()
+    memory.check_pico_storage()
+    
     main()

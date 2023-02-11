@@ -1,5 +1,5 @@
 import logging
-logger = logging.getLogger('memory')
+logger = logging.getLogger("memory","memory.log")
 logger.setLevel(logging.INFO)
 
 import sys

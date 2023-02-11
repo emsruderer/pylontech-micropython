@@ -94,6 +94,7 @@ class Logger:
         else:
             with open(_filename, "a") as fp:
                 sys.print_exception(exception, fp)
+            self.check_logfile(_filename)
 
     def check_logfile(self,filename, max_filesize=MAX_FILE_SIZE):
         stat = os.stat(filename)

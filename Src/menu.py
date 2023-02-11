@@ -8,6 +8,9 @@ from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
 import logging 
 
+logging.basicConfig(logging.INFO,'menu.log')
+#logging.setLevel(logging.WARNING)
+
 DEBUG = False
 
 def print_dict(d : Dict):
@@ -84,8 +87,8 @@ class PylontechMenu:
             try:
                 decoded = self.decode.decodeSerialNumber()
                 return decoded
-            except Exception as e:
-                logging.info("Pylontech decode exception ", e.args)
+            except Exception as ex:
+                logging.exception(ex,"serial number")
         return None
  
     def update(self):
@@ -195,7 +198,7 @@ class PylontechMenu:
         self.pylonData['Calculated']['MinimumTemperature'] = round(minimum_temperature,1)
         self.pylonData['Calculated']['MaximumTemperature'] = round(maximum_temperature,1)
         self.pylonData['Calculated']['Temperature'] = temperature
-        logging.debug("end update: ", time.time()-starttime)
+        logging.debug("end update: "+ str(time.time()-starttime))
         return self.pylonData
 
 
@@ -224,7 +227,7 @@ class PylontechMenu:
                 if raws:
                     self.decode.decode_header(raws)
                     decoded_p = self.decode.decodePotocolVersion()
-                    return strip_header(decoded_p)
+                    return decoded_p
                 else:
                     return None
             elif key == 'manufactory':
@@ -297,18 +300,19 @@ class PylontechMenu:
             """ if the battries start to give wrong answers we ask the simplest questions
                 until we get correct answers again """
         except ValueError as ex:
-            logging.warning('Pylontech Value Error ' + str(ex))
+            logging.exception(ex,"Value Error")
             self.recover()
             continue
         except KeyboardInterrupt as ex:
             sys.exit(1)
             raise SystemExit
         except Exception as ex:
-            logging.warning('Pylontech Exception ' + str(ex))
+            logging.exception(ex,"exception") 
             self.recover()
             continue
         except UnicodeError as ex:
-            logging.warning('UnicodeError ' + str(ex))
+            logging.warning(ex,ex.args())
+            continue
 
 
 

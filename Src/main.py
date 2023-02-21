@@ -7,8 +7,8 @@ import menu
 import logging
 import memory
 
-#logger = logging.getLogger('html','html.log')
-logger = logging.getLogger('html')
+logger = logging.getLogger('html','html.log')
+#logger = logging.getLogger('html')
 
 """connect to the local network and init (RTC) time fro a timeserver"""
 wlan = Wifi()

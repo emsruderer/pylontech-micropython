@@ -8,8 +8,9 @@ from pylontech_decode import PylontechDecode
 from pylontech_encode import PylontechEncode
 import logging 
 
-logging.basicConfig(logging.INFO,'menu.log')
-#logging.setLevel(logging.WARNING)
+#logging.basicConfig(logging.INFO,'menu.log')
+logger = logging.getLogger('menu','menu.log')
+logger.setLevel(logging.INFO)
 
 DEBUG = False
 
@@ -71,7 +72,7 @@ class PylontechMenu:
             serialList.append(decoded['ModuleSerialNumber'])
         self.pylonData['SerialNumbers'] = serialList
         self.battcount = len(serialList)
-        logging.info(f'batteries: {self.battcount} {serialList}')
+        logger.info(f'batteries: {self.battcount} {serialList}')
         self.pylonData['Calculated'] = Dict()
     
     def get_module_count(self):
@@ -88,7 +89,7 @@ class PylontechMenu:
                 decoded = self.decode.decodeSerialNumber()
                 return decoded
             except Exception as ex:
-                logging.exception(ex,"serial number")
+                logger.exception(ex,"serial number")
         return None
  
     def update(self):
@@ -96,7 +97,7 @@ class PylontechMenu:
         @return  A dict with all collected Information.
         """
         starttime=time.time()
-        logging.debug("start update")
+        logger.debug("start update")
         analogList = []
         chargeDischargeManagementList = []
         alarmInfoList = []
@@ -198,7 +199,7 @@ class PylontechMenu:
         self.pylonData['Calculated']['MinimumTemperature'] = round(minimum_temperature,1)
         self.pylonData['Calculated']['MaximumTemperature'] = round(maximum_temperature,1)
         self.pylonData['Calculated']['Temperature'] = temperature
-        logging.debug("end update: "+ str(time.time()-starttime))
+        logger.debug("end update: "+ str(time.time()-starttime))
         return self.pylonData
 
 
@@ -293,25 +294,25 @@ class PylontechMenu:
             elif key == 'reboot':
                 machine.soft_reset()
             else:
-                logging.debug('Invalid process command')
+                logger.debug('Invalid process command')
                 raise SystemExit('Invalid process command')
             SUCCESS = True
  
             """ if the battries start to give wrong answers we ask the simplest questions
                 until we get correct answers again """
         except ValueError as ex:
-            logging.exception(ex,"Value Error")
+            logger.exception(ex,"Value Error")
             self.recover()
             continue
         except KeyboardInterrupt as ex:
             sys.exit(1)
             raise SystemExit
         except Exception as ex:
-            logging.exception(ex,"exception") 
+            logger.exception(ex,"exception") 
             self.recover()
             continue
         except UnicodeError as ex:
-            logging.warning(ex,ex.args())
+            logger.warning(ex,ex.args())
             continue
 
 

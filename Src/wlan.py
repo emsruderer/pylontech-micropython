@@ -1,7 +1,7 @@
 import logging
 #logging.basicConfig(level=logging.DEBUG,filename='pylontech.log')
-#logger = logging.getLogger("wlan","net.log")
-logger = logging.getLogger("wlan")
+logger = logging.getLogger("wlan","net.log")
+#logger = logging.getLogger("wlan")
 logger.setLevel(logging.INFO)
 
 from machine import UART, Pin, RTC, Timer
@@ -15,7 +15,7 @@ import struct
 import ubinascii
 
 SSID = "LocalNetwork"
-PASSWORD = "password"
+PASSWORD = "PASSWORD"
 
 LINK_DOWN = 0
 LINK_JOIN = 1
